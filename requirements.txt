@@ -20,3 +20,6 @@ langgraph-checkpoint-sqlite>=3.0
 # RAG
 langchain-chroma>=1.0           # Base vectorial (ChromaDB)
 langchain-text-splitters>=1.0   # Chunking
+
+# Tests
+pytest>=8.0   # tests de lógica pura y de datos (tests/), sin red ni modelo
