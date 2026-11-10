@@ -1,0 +1,31 @@
+{
+  "descripcion": "Allow-list de variables para get_weather_forecast. El modelo elige grupos por clave según lo que pide el usuario; la tool traduce cada grupo a los parámetros diarios de Open-Meteo. Todos los parámetros se verificaron contra el endpoint /v1/forecast el 07/11/2026. La interpretación de cada valor (umbrales de riesgo) va en la skill criterios_riesgo, no acá.",
+  "fuente": "https://open-meteo.com/en/docs",
+  "por_defecto": ["lluvia", "tormenta", "viento", "temperatura"],
+  "variables": {
+    "lluvia": {
+      "descripcion": "Lluvia acumulada del día y probabilidad máxima de precipitación. Base para riesgo pluvial y aluvional.",
+      "parametros": {"precipitation_sum": "mm", "precipitation_probability_max": "%"}
+    },
+    "tormenta": {
+      "descripcion": "CAPE máximo del día: energía disponible para convección. Indicador indirecto de tormentas fuertes y granizo; no es un pronóstico de granizo.",
+      "parametros": {"cape_max": "J/kg"}
+    },
+    "viento": {
+      "descripcion": "Ráfaga máxima y dirección dominante. Ráfagas fuertes del sector oeste/noroeste en el llano son la firma del viento Zonda.",
+      "parametros": {"wind_gusts_10m_max": "km/h", "wind_direction_10m_dominant": "°"}
+    },
+    "temperatura": {
+      "descripcion": "Máxima y mínima diarias a 2 m. La mínima sirve para riesgo de helada; la máxima, para golpe de calor.",
+      "parametros": {"temperature_2m_max": "°C", "temperature_2m_min": "°C"}
+    },
+    "humedad": {
+      "descripcion": "Humedad relativa media del día. Junto con la lluvia, indica condiciones favorables a enfermedades fúngicas.",
+      "parametros": {"relative_humidity_2m_mean": "%"}
+    },
+    "nieve": {
+      "descripcion": "Nevada acumulada del día. Relevante en alta montaña (Uspallata, Potrerillos, Malargüe) y para pasos cordilleranos.",
+      "parametros": {"snowfall_sum": "cm"}
+    }
+  }
+}
