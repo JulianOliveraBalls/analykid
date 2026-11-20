@@ -16,9 +16,8 @@ except RuntimeError as e:  # por ejemplo, faltan API keys en el .env
     st.stop()
 
 PASOS_EXPANDIDOS = True   # False: razonamiento y tools quedan plegados
-ICONOS = {"pending": "⬜", "in_progress": "🔄", "done": "✅"}
 
-st.set_page_config(page_title="Agente investigador", page_icon="🔎")
+st.set_page_config(page_title="AnalyKid", page_icon="🌧️")
 
 
 def init_session(config) -> None:
@@ -29,14 +28,8 @@ def init_session(config) -> None:
 
 def titulo_llamada(e: dict) -> str:
     nombre, args = e["nombre"], e["args"]
-    if nombre == "web_search":
-        return f"🌐 Búsqueda web: «{args.get('query', '')}»"
     if nombre == "search_knowledge_base":
         return f"📚 Base de conocimiento: «{args.get('query', '')}»"
-    if nombre == "write_todos":
-        return "📝 Escribió la lista de TODOs"
-    if nombre == "read_todos":
-        return "📋 Leyó la lista de TODOs"
     if nombre == "load_skill":
         return f"📖 Skill «{args.get('nombre', '')}»"
     if nombre == "create_pdf":
@@ -46,24 +39,16 @@ def titulo_llamada(e: dict) -> str:
 
 def detalle_llamada(e: dict) -> None:
     """Lo que se sabe apenas el agente decide llamar a la tool (sus argumentos)."""
-    if e["nombre"] == "write_todos":
-        for t in e["args"].get("todos", []):
-            st.markdown(f"{ICONOS.get(t['status'], '•')} {t['task']}")
-    elif e["nombre"] == "create_pdf":
+    if e["nombre"] == "create_pdf":
         st.code(e["args"].get("cuerpo", ""), language="latex")   # el LaTeX que escribió el modelo
 
 
 def detalle_resultado(llamada: dict, r: dict) -> str | None:
     """Reporte de lo que devolvió la tool. Devuelve "error" si la tool falló."""
     nombre, datos = llamada["nombre"], r["datos"]
-    if nombre == "web_search":
-        for f in datos or []:
-            st.markdown(f"- [{f['title']}]({f['url']})")
-    elif nombre == "search_knowledge_base":
+    if nombre == "search_knowledge_base":
         for f in datos or []:
             st.markdown(f"- 📄 **{f['archivo']}**: _{f['fragmento']}…_")
-    elif nombre == "read_todos":
-        st.text(r["texto"])
     elif nombre == "create_pdf":
         pdf = Path(datos["pdf"]) if datos else None
         if pdf and pdf.exists():
@@ -132,7 +117,7 @@ def render_sidebar() -> None:
 if "config" not in st.session_state:
     init_session(resume_thread())
 
-st.title("🔎 Agente investigador")
+st.title("🌧️ AnalyKid")
 render_sidebar()
 
 # Streamlit re-ejecuta todo el script en cada interacción: se redibuja el historial guardado.

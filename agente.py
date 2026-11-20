@@ -1,11 +1,10 @@
-"""Agente: lógica del agente con streaming, reutilizable desde consola y Streamlit.
+"""Agente: lógica del agente con streaming; la interfaz es app.py (Streamlit).
 
 `stream_turn` ejecuta un turno y emite *eventos* (razonamiento, llamadas a tools,
 resultados, texto) a medida que el agente avanza. `saved_turns` reconstruye los
 mismos eventos desde la conversación guardada. Cada interfaz solo los presenta.
 
-Consola:    python agente.py
-Streamlit:  streamlit run app.py
+Ejecutar:  streamlit run app.py
 """
 import sqlite3
 from collections.abc import Iterator
@@ -18,7 +17,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from model import get_model
-from tools import TOOLS, Context, ResearchState, listar_skills
+from tools import TOOLS, Context, AnalyKidState, listar_skills
 
 # La fecha se fija al declarar el prompt (al iniciar el programa); no se
 # actualiza si la sesión cruza la medianoche.
@@ -29,20 +28,12 @@ SYSTEM_PROMPT = (
     f"La fecha de hoy es {HOY.isoformat()} (AAAA-MM-DD). Tené en cuenta esta "
     "fecha para razonar sobre qué es 'reciente', 'actual' o 'último', y no "
     "asumas que el año actual es el de tu entrenamiento. "
-    "Usá la herramienta de búsqueda web cuando la pregunta requiera información "
-    "actual o que no conozcas con certeza; si la búsqueda es sobre algo "
-    f"reciente, incluí el año ({HOY.year}) en la consulta. Si buscás, citá las "
-    "URLs de las fuentes que usaste. "
-    "Para preguntas sobre LangChain o LangGraph, consultá primero la base de "
-    "conocimiento (search_knowledge_base) y complementá con la búsqueda web si "
-    "hace falta información actual. Citá los archivos de la base de conocimiento "
-    "que uses. "
+    "Consultá la base de conocimiento (search_knowledge_base) y citá los "
+    "archivos que uses. "
     "Para crear un documento PDF usá create_pdf; antes de escribir LaTeX por "
     "primera vez, cargá la skill correspondiente con load_skill. Si la "
     "compilación falla, corregí el error y reintentá (máximo 3 intentos). "
-    f"Skills disponibles: {listar_skills()}. "
-    "Ante una tarea de varios pasos, planificá primero con la lista de TODOs y "
-    "mantenela actualizada mientras avanzás."
+    f"Skills disponibles: {listar_skills()}."
 )
 
 DIR = Path(__file__).parent
@@ -52,13 +43,13 @@ agent = create_agent(
     model=get_model(),
     tools=TOOLS,
     system_prompt=SYSTEM_PROMPT,
-    state_schema=ResearchState,     # estado extendido: messages + todos + sources
+    state_schema=AnalyKidState,     # estado extendido: messages + sources
     context_schema=Context,         # datos de solo lectura por invocación (turno)
     checkpointer=SqliteSaver(sqlite3.connect(DIR / "memoria.db", check_same_thread=False)),
 )
 
 
-# --- Conversaciones (sin cambios respecto de V5.5) ---------------------------
+# --- Conversaciones -----------------------------------------------------------
 
 def _config(thread_id: str) -> RunnableConfig:
     return {"configurable": {"thread_id": thread_id}}
@@ -107,14 +98,12 @@ def list_threads(limit: int = 5) -> list[tuple[str, str]]:
 def _razonamiento(m) -> str:
     """Razonamiento de un mensaje del agente.
 
-    Gemini y OpenRouter lo traen como bloques estándar `reasoning`; LM Studio
-    como `reasoning_content` (lo conserva chat_lmstudio.py).
+    Gemini y OpenRouter lo traen como bloques estándar `reasoning`.
     """
-    bloques = [
+    return "\n\n".join(
         b["reasoning"] for b in m.content_blocks
         if b["type"] == "reasoning" and b.get("reasoning")
-    ]
-    return "\n\n".join(bloques) or m.additional_kwargs.get("reasoning_content", "")
+    )
 
 
 def eventos(mensajes: list) -> Iterator[dict]:
@@ -166,48 +155,3 @@ def saved_turns(config: RunnableConfig) -> list[tuple[str, list[dict]]]:
     for n, (_, evs) in enumerate(turnos, 1):
         evs.extend(_evento_fuentes(estado, n))
     return turnos
-
-
-# --- Consola -----------------------------------------------------------------
-
-def print_evento(e: dict) -> None:
-    """Muestra un evento por consola."""
-    tipo = e["tipo"]
-    if tipo == "razonamiento":
-        print(f"[razonamiento] {e['texto']}\n")
-    elif tipo == "llamada":
-        print(f"[tool] {e['nombre']}({e['args']})")
-    elif tipo == "resultado":
-        print(f"[resultado] {e['texto'][:200]}\n")
-    elif tipo == "fuentes":
-        for s in e["fuentes"]:
-            print(f"[fuente] {s['title']} - {s['url']}")
-    elif tipo == "texto":
-        print(f"Agente: {e['texto']}\n")
-
-
-def main() -> None:
-    print("Agente V8 (streaming) listo. Escribí 'salir' para terminar.\n")
-    config = resume_thread()
-
-    turnos = saved_turns(config)      # muestra lo que ya se había hablado
-    for pregunta, evs in turnos:
-        print(f"Vos: {pregunta}")
-        for e in evs:
-            print_evento(e)
-    turno = len(turnos)
-
-    while True:
-        user_input = input("Vos: ").strip()
-        if user_input.lower() in {"salir", "exit", "quit"}:
-            break
-        if not user_input:
-            continue
-
-        turno += 1
-        for e in stream_turn(user_input, config, turno):
-            print_evento(e)
-
-
-if __name__ == "__main__":
-    main()

@@ -3,23 +3,24 @@ langchain>=1.0
 langgraph>=1.0
 python-dotenv>=1.0
 
-# Proveedores de modelos
-langchain-google-genai>=3.0   # Google Gemini (principal)
-langchain-openai>=1.0         # LM Studio (servidor local compatible con OpenAI)
+# Modelos: Gemini (principal y embeddings) y OpenRouter (respaldo)
+langchain-google-genai>=3.0
 langchain-openrouter==0.2.9
 
 # Tools
-langchain-tavily>=0.2   # Búsqueda web (Tavily)
+langchain-tavily>=0.2   # web_search (dominios oficiales)
+requests>=2.31          # NOAA, Open-Meteo y Flood API
 
 # UI
 streamlit>=1.40
 
-# Memoria Corto Plazo
+# Memoria
 langgraph-checkpoint-sqlite>=3.0
 
 # RAG
-langchain-chroma>=1.0           # Base vectorial (ChromaDB)
-langchain-text-splitters>=1.0   # Chunking
+langchain-chroma>=1.0
+langchain-text-splitters>=1.0
+pyyaml>=6.0             # frontmatter del corpus
 
 # Tests
-pytest>=8.0   # tests de lógica pura y de datos (tests/), sin red ni modelo
+pytest>=8.0
