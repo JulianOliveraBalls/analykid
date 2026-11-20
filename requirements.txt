@@ -8,8 +8,7 @@ langchain-google-genai>=3.0
 langchain-openrouter==0.2.9
 
 # Tools
-langchain-tavily>=0.2   # web_search (dominios oficiales)
-requests>=2.31          # NOAA, Open-Meteo y Flood API
+requests>=2.31          # NOAA, Open-Meteo, Flood API y Tavily (REST)
 
 # UI
 streamlit>=1.40

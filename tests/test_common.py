@@ -20,24 +20,24 @@ class _Resp:
 
 
 def _simular(monkeypatch, respuestas: list):
-    """Reemplaza requests.get por una secuencia de respuestas (o excepciones)."""
+    """Reemplaza requests.request por una secuencia de respuestas (o excepciones)."""
     llamadas = []
 
-    def get(url, params, timeout):
-        llamadas.append(timeout)
+    def request(metodo, url, params, json, headers, timeout):
+        llamadas.append((metodo, timeout))
         r = respuestas.pop(0)
         if isinstance(r, Exception):
             raise r
         return r
 
-    monkeypatch.setattr(common.requests, "get", get)
+    monkeypatch.setattr(common.requests, "request", request)
     return llamadas
 
 
 def test_ok_al_primer_intento(monkeypatch):
     llamadas = _simular(monkeypatch, [_Resp(200, {"a": 1})])
     assert pedir("u", {}, esperar=lambda s: None) == ({"a": 1}, None)
-    assert llamadas == [common.TIMEOUT_S]
+    assert llamadas == [("GET", common.TIMEOUT_S)]
 
 
 def test_429_reintenta_con_esperas_crecientes(monkeypatch):
@@ -69,3 +69,9 @@ def test_respuesta_no_json_devuelve_texto(monkeypatch):
 def test_error_de_conexion_se_reintenta(monkeypatch):
     _simular(monkeypatch, [requests.ConnectionError(), _Resp(200, [1])])
     assert pedir("u", {}, esperar=lambda s: None) == ([1], None)
+
+
+def test_post_con_cuerpo(monkeypatch):
+    llamadas = _simular(monkeypatch, [_Resp(200, {"results": []})])
+    assert pedir("u", cuerpo={"q": 1}, esperar=lambda s: None) == ({"results": []}, None)
+    assert llamadas[0][0] == "POST"

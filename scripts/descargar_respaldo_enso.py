@@ -1,4 +1,4 @@
-"""Descarga los índices ENSO de NOAA a datos/respaldo/ (versionado).
+"""Descarga el índice RONI de NOAA a datos/respaldo/ (versionado), el que usa get_enso_status.
 
 Uso:
     python scripts/descargar_respaldo_enso.py
@@ -12,7 +12,6 @@ import requests
 RAIZ = Path(__file__).resolve().parent.parent
 DESTINO = RAIZ / "datos" / "respaldo"
 ARCHIVOS = {
-    "oni.ascii.txt": "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt",
     "RONI.ascii.txt": "https://www.cpc.ncep.noaa.gov/data/indices/RONI.ascii.txt",
 }
 

@@ -55,16 +55,20 @@ def error(tool: str, causa: str, sugerencia: str) -> str:
     return f"ERROR {tool}: {causa}. {sugerencia}"
 
 
-def pedir(url: str, params: dict, *, esperar=time.sleep) -> tuple[Any, str | None]:
-    """GET con timeout y reintentos. Devuelve `(datos, None)` o `(None, causa)`.
+def pedir(url: str, params: dict | None = None, *, cuerpo: dict | None = None,
+          headers: dict | None = None, esperar=time.sleep) -> tuple[Any, str | None]:
+    """HTTP con timeout y reintentos. Devuelve `(datos, None)` o `(None, causa)`.
 
-    Reintenta ante 429, 5xx, timeout o falla de conexión, esperando 2, 4 y 8 s.
-    `datos` es el JSON de la respuesta, o el texto si no es JSON.
+    GET con `params`, o POST con `cuerpo` JSON. Reintenta ante 429, 5xx, timeout
+    o falla de conexión, esperando 2, 4 y 8 s. `datos` es el JSON de la
+    respuesta, o el texto si no es JSON.
     """
+    metodo = "POST" if cuerpo is not None else "GET"
     causa = "sin respuesta"
     for espera in (*ESPERAS_S, None):
         try:
-            r = requests.get(url, params=params, timeout=TIMEOUT_S)
+            r = requests.request(metodo, url, params=params, json=cuerpo,
+                                 headers=headers, timeout=TIMEOUT_S)
         except requests.Timeout:
             causa = f"la fuente no respondió en {TIMEOUT_S} s"
         except requests.RequestException as e:
