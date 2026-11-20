@@ -84,8 +84,11 @@ def _caudal(d: dict) -> None:
 
 
 def _alertas(d: dict) -> None:
+    if d.get("zona_usada"):
+        st.caption(f"Búsqueda: {d['zona_usada']}")
     for a in d["elegidos"]:
-        st.markdown(f"- **{_dm(a['fecha'])}** · {a['dominio']} · [{a['titulo']}]({a['url']})")
+        tipo = "🚨 Alerta" if a.get("es_alerta") else "ℹ️ Información oficial"
+        st.markdown(f"- {tipo} · **{_dm(a['fecha'])}** · {a['dominio']} · [{a['titulo']}]({a['url']})")
     if not d["elegidos"]:
         st.markdown("Sin alertas oficiales en las últimas 48 h.")
     if d["descartados"]:

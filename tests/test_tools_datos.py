@@ -153,3 +153,28 @@ def test_alertas_acepta_fecha_iso():
 def test_dominio_oficial_no_acepta_sufijos_falsos():
     assert web_search.dominio_oficial("https://falsosmn.gob.ar/x", ["smn.gob.ar"]) is None
     assert web_search.dominio_oficial("https://ws.smn.gob.ar/x", ["smn.gob.ar"]) == "smn.gob.ar"
+
+
+def test_es_alerta_distingue_alertas_de_pronosticos():
+    assert web_search.es_alerta("SMN: alerta amarilla por tormentas para el Valle de Uco")
+    assert web_search.es_alerta("Aviso a muy corto plazo por tormentas fuertes")
+    assert web_search.es_alerta("Rige alerta por viento Zonda")
+    assert not web_search.es_alerta("Pronóstico Diario - Contingencias Mendoza: tormentas en el sur")
+    assert not web_search.es_alerta("Defensa Civil recomienda tomar recaudos ante las precipitaciones")
+
+
+def test_redactar_marca_alertas_y_respaldo_provincial():
+    fecha = AHORA - timedelta(hours=1)
+    info = {"fecha": fecha, "dominio": "mendoza.gov.ar", "titulo": "Pronóstico", "resumen": "r",
+            "url": "https://x", "es_alerta": False}
+    texto = web_search.redactar([info], 0, "Mendoza", "Tupungato", 48, "20/11/2026 12:00")
+    assert "Información oficial" in texto and "ALERTA" not in texto.split("\n")[1]
+    assert "nivel provincial" in texto and "no fija el nivel mínimo" in texto
+    alerta = {**info, "es_alerta": True}
+    texto = web_search.redactar([alerta], 2, "Tupungato", "Tupungato", 48, "20/11/2026 12:00")
+    assert "[1] ALERTA" in texto and "fijan el nivel mínimo" in texto and "provincial" not in texto
+
+
+def test_redactar_sin_resultados():
+    texto = web_search.redactar([], 3, "Mendoza", "Tupungato", 48, "20/11/2026 12:00")
+    assert texto.startswith("Sin alertas oficiales encontradas al 20/11/2026 12:00; no implica ausencia de riesgo")

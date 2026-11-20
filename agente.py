@@ -65,9 +65,11 @@ nivel (máximo rojo).
 - El ENSO es contexto de temporada: no cambia ningún nivel.
 - Cada nivel lleva motivo, umbral y origen. Ejemplo: «Naranja: CAPE máx. 2300 J/kg el 18/11 \
 (umbral ≥ 2000)».
-- Una alerta oficial vigente fija el nivel mínimo. Si los datos dan más, usá el más alto con la \
-etiqueta «señal del pronóstico, sin alerta oficial vigente». Nunca llames «alerta» a algo que \
-no salió de web_search; sin alertas encontradas nunca es «no hay riesgo».
+- Una alerta oficial vigente (resultado de web_search marcado ALERTA) fija el nivel mínimo. Si \
+los datos dan más, usá el más alto con la etiqueta «señal del pronóstico, sin alerta oficial \
+vigente». La «información oficial» de web_search (pronósticos, comunicados) es contexto: no fija \
+niveles. Nunca llames «alerta» a algo que no esté marcado ALERTA; sin alertas encontradas nunca \
+es «no hay riesgo».
 - Crecida en amarillo o más con lluvia intensa prevista: destacá la combinación lluvia + \
 canales con agua (los ríos están regulados por embalses).
 - Perfil vid: si la etapa (skill informe_riesgo) está entre brotes de 15-20 cm y baya tamaño \

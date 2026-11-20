@@ -27,7 +27,8 @@ Copiá los valores tal como los devuelven las tools: ya vienen calculados y redo
 
 ## web_search (Tavily sobre dominios oficiales)
 - Busca solo en smn.gob.ar, mendoza.gov.ar, irrigacion.gov.ar e ina.gob.ar, y descarta lo que no tenga fecha o tenga más de 48 horas.
-- Solo lo que devuelve esta tool puede llamarse «alerta» o «aviso oficial», citando dominio, fecha y URL.
+- Cada resultado viene marcado **ALERTA** (menciona una alerta o aviso meteorológico) o **Información oficial** (pronósticos, comunicados). Solo lo marcado ALERTA puede llamarse «alerta» y fijar el nivel mínimo; la información oficial se usa como contexto en el contraste de fuentes. Citá siempre dominio, fecha y URL.
+- Si la zona no dio resultados, la tool busca a nivel provincial y lo aclara: decí en el informe que el aviso es provincial, no de la localidad.
 - «Sin alertas oficiales encontradas» **no** significa «sin riesgo»: escribilo tal cual.
 
 ## search_knowledge_base (corpus propio)

@@ -8,7 +8,7 @@ description: Estructura del PDF del plan de contingencia, etapa de la vid por oa
 2. **Contexto de temporada**: ENSO (fase, valor, fecha del dato) y lo que dice el corpus de la temporada, con cita.
 3. **Pronóstico por día**: tabla con fecha, lluvia, probabilidad, CAPE, ráfaga y mínima/máxima.
 4. **Caudal del río**: máximo y fecha, media 1991-2020, cociente y tendencia.
-5. **Alertas oficiales**: cada una con dominio, fecha y URL, o la frase exacta «Sin alertas oficiales encontradas al <fecha>; no implica ausencia de riesgo».
+5. **Alertas oficiales**: las marcadas ALERTA, con dominio, fecha y URL; la información oficial aparte, como contexto. Sin alertas: la frase exacta «Sin alertas oficiales encontradas al <fecha>; no implica ausencia de riesgo».
 6. **Semáforo**: una fila por amenaza (pluvial, granizo/tormenta, aluvional, crecida, sanitaria) con nivel, motivo, umbral aplicado y origen del dato.
 7. **Contraste de fuentes**: qué dice el pronóstico frente a las alertas oficiales y frente al corpus; si difieren, cuál prima y por qué.
 8. **Medidas**: agrupadas por plazo (ahora / próximas 48 h / durante el período / después del evento), cada una con su cita [Documento — Sección]. Solo para amenazas en amarillo o más. Las sanitarias primero si la vid está en período crítico.
