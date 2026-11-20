@@ -1,25 +1,28 @@
+# Versiones fijadas desde el entorno que funcionó (pip freeze, 20/11/2026).
+
 # Núcleo
-langchain>=1.0
-langgraph>=1.0
-python-dotenv>=1.0
+langchain==1.5.2
+langgraph==1.2.24
+python-dotenv==1.2.4
 
 # Modelos: Gemini (principal y embeddings) y OpenRouter (respaldo)
-langchain-google-genai>=3.0
+langchain-google-genai==4.5.2
 langchain-openrouter==0.2.9
 
-# Tools
-requests>=2.31          # NOAA, Open-Meteo, Flood API y Tavily (REST)
+# Tools: NOAA, Open-Meteo, Flood API y Tavily (REST)
+requests==2.34.2
 
 # UI
-streamlit>=1.40
+streamlit==1.67.0
+pandas==3.1.1
 
 # Memoria
-langgraph-checkpoint-sqlite>=3.0
+langgraph-checkpoint-sqlite==3.1.3
 
 # RAG
-langchain-chroma>=1.0
-langchain-text-splitters>=1.0
-pyyaml>=6.0             # frontmatter del corpus
+langchain-chroma==1.1.0
+langchain-text-splitters==1.1.3
+PyYAML==6.0.3          # frontmatter del corpus
 
 # Tests
-pytest>=8.0
+pytest==9.2.0
