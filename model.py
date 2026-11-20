@@ -11,9 +11,10 @@ from langchain_core.language_models import BaseChatModel
 
 load_dotenv()
 
-# Reintentos ante 429 y errores transitorios: los resuelve el cliente de cada
-# proveedor, con espera exponencial (por eso no hay middleware de reintentos).
-REINTENTOS = 6
+# Reintentos ante 429 y 503: los hace el cliente de cada proveedor, con espera
+# exponencial. Son pocos a propósito: si el modelo sigue saturado, el agente
+# pasa al modelo de respaldo (MODEL_FALLBACK, ver agente.py) en lugar de esperar.
+REINTENTOS = 3
 TIMEOUT_S = 120
 
 
@@ -30,10 +31,10 @@ def get_embeddings():
     return GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
 
 
-def get_model() -> BaseChatModel:
-    """Gemini (principal) u OpenRouter (respaldo), según MODEL_PROVIDER."""
+def get_model(name: str | None = None) -> BaseChatModel:
+    """Gemini (principal) u OpenRouter, según MODEL_PROVIDER. `name` pisa MODEL_NAME."""
     provider = os.getenv("MODEL_PROVIDER", "google_genai")
-    name = os.getenv("MODEL_NAME", "gemini-3.5-flash-lite")
+    name = name or os.getenv("MODEL_NAME", "gemini-3.5-flash-lite")
 
     if provider == "google_genai":
         _exigir("GOOGLE_API_KEY")
@@ -60,3 +61,9 @@ def get_model() -> BaseChatModel:
     raise RuntimeError(
         f"MODEL_PROVIDER «{provider}» no soportado. Opciones: google_genai, openrouter."
     )
+
+
+def get_fallback() -> BaseChatModel | None:
+    """Modelo de respaldo ante 503/429 persistentes (MODEL_FALLBACK, mismo proveedor), o None."""
+    nombre = os.getenv("MODEL_FALLBACK")
+    return get_model(nombre) if nombre else None

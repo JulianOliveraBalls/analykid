@@ -196,6 +196,9 @@ def mensaje_de_error(e: Exception) -> str:
     texto = str(e)
     if "429" in texto or "RateLimit" in type(e).__name__ or "RESOURCE_EXHAUSTED" in texto:
         return "Se alcanzó el límite del proveedor del modelo: esperá un minuto y volvé a enviar el mensaje."
+    if "503" in texto or "UNAVAILABLE" in texto:
+        return ("El modelo está saturado (503) y el de respaldo también falló: esperá unos minutos "
+                "y volvé a enviar el mensaje. La conversación se conserva.")
     return f"El agente falló: {texto[:500]}"
 
 

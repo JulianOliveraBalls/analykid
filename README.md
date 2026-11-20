@@ -82,7 +82,7 @@ python scripts/descargar_respaldo_enso.py    # copia del RONI para funcionar sin
 ## Notas
 
 - **Razonamiento:** Gemini devuelve resúmenes de su razonamiento con `include_thoughts=True` (en Gemini 3+, además, con `THINKING_LEVEL`) y la UI los muestra en «💭 Razonamiento». Si el modelo no los devuelve, esos bloques no aparecen y todo lo demás funciona igual.
-- **Errores:** ninguna tool lanza excepciones. Ante una falla devuelven `ERROR <tool>: <causa>. <qué hacer>` y el agente sigue: la amenaza afectada queda «sin datos», nunca en verde. El 429 del modelo lo reintenta el cliente con espera exponencial; el de las APIs, `pedir()` (2, 4 y 8 s).
+- **Errores:** ninguna tool lanza excepciones. Ante una falla devuelven `ERROR <tool>: <causa>. <qué hacer>` y el agente sigue: la amenaza afectada queda «sin datos», nunca en verde. El 429 y el 503 del modelo los reintenta el cliente con espera exponencial; si persisten, `ModelFallbackMiddleware` (el único middleware) repite la llamada con `MODEL_FALLBACK`. Los de las APIs los reintenta `pedir()` (2, 4 y 8 s).
 - **PDF:** Tectonic corre sin shell, con argumentos fijos y en modo `--untrusted`, y el cuerpo se filtra con una lista de comandos prohibidos. Es adecuado para uso local.
 - El informe **no reemplaza** las alertas oficiales del SMN ni las indicaciones de Defensa Civil.
 
@@ -94,6 +94,7 @@ python scripts/descargar_respaldo_enso.py    # copia del RONI para funcionar sin
 | `ERROR create_pdf: no se encontró Tectonic` | No instalado o fuera del `PATH`: definí `TECTONIC_PATH` |
 | `ERROR search_knowledge_base: falta la base vectorial` | No se ejecutó `python -m rag.ingest` |
 | «Se alcanzó el límite del proveedor» | 429 del modelo: esperá un minuto y repetí |
+| «El modelo está saturado» | 503 de Gemini en ambos modelos: esperá unos minutos o configurá otro `MODEL_FALLBACK` |
 | `ERROR web_search: falta TAVILY_API_KEY` | Clave de Tavily ausente: el informe sale sin alertas oficiales |
 
 ## Créditos
