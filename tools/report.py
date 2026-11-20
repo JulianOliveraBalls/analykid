@@ -18,15 +18,35 @@ TIMEOUT_S = 180   # la primera compilación descarga paquetes y puede tardar
 # El modelo escribe solo el cuerpo; el preámbulo es fijo y sabemos que compila.
 PLANTILLA = r"""\documentclass[11pt]{article}
 \usepackage{fontspec}
-\usepackage[spanish]{babel}
-\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage[a4paper,margin=2.2cm,bottom=2.8cm]{geometry}
+\usepackage[table]{xcolor}
 \usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
+\definecolor{nverde}{HTML}{2E7D32}
+\definecolor{namarillo}{HTML}{F9A825}
+\definecolor{nnaranja}{HTML}{EF6C00}
+\definecolor{nrojo}{HTML}{C62828}
+\definecolor{nsindatos}{HTML}{757575}
+\newcommand{\nivelverde}{\colorbox{nverde}{\textcolor{white}{\textbf{VERDE}}}}
+\newcommand{\nivelamarillo}{\colorbox{namarillo}{\textcolor{black}{\textbf{AMARILLO}}}}
+\newcommand{\nivelnaranja}{\colorbox{nnaranja}{\textcolor{white}{\textbf{NARANJA}}}}
+\newcommand{\nivelrojo}{\colorbox{nrojo}{\textcolor{white}{\textbf{ROJO}}}}
+\newcommand{\nivelsindatos}{\colorbox{nsindatos}{\textcolor{white}{\textbf{SIN DATOS}}}}
+\newcommand{\nivel}[1]{\csname nivel#1\endcsname}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize Este informe no reemplaza las alertas oficiales del SMN ni las indicaciones de Defensa Civil.}
+\fancyfoot[R]{\footnotesize\thepage}
 \title{<<TITULO>>}
-\author{}
+\author{AnalyKid}
 \date{\today}
 \begin{document}
 \maketitle
+\thispagestyle{fancy}
 <<CUERPO>>
 \end{document}
 """

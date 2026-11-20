@@ -1,81 +1,53 @@
 ---
-description: Cómo escribir el cuerpo de un documento LaTeX (secciones, listas, tablas, fórmulas, enlaces) que compile sin errores con la herramienta create_pdf.
+description: Cómo escribir el cuerpo LaTeX del informe para create_pdf (macros de la plantilla, tablas, escapado de caracteres) para que compile al primer intento. Cargala una vez por conversación.
 ---
 # Skill: LaTeX para create_pdf
 
 ## Qué escribís y qué agrega la herramienta
-- Vos escribís **solo el cuerpo**: lo que iría entre `\begin{document}` y `\end{document}`.
-- La herramienta ya agrega el preámbulo, el título (`\maketitle`) y la fecha. No repitas `\title` ni `\maketitle`.
-- Ya están cargados: fontspec, babel (español), geometry, amsmath, booktabs y hyperref. **No uses** `\usepackage`, `\documentclass`, `\input`, `\include`, `\write`, `\catcode`, `\csname`, `\special` ni `^^`: la herramienta rechaza el documento.
-- Escribí con caracteres normales (á, é, ñ, «», —, €). No uses comandos para los acentos.
+- Escribís **solo el cuerpo**: lo que va entre `\begin{document}` y `\end{document}`.
+- La plantilla ya pone el título, «AnalyKid», la fecha y, al pie de cada página, el descargo «Este informe no reemplaza las alertas oficiales del SMN ni las indicaciones de Defensa Civil». No los repitas.
+- Ya están cargados: fontspec, babel (español), geometry, xcolor, booktabs, longtable, fancyhdr y hyperref. **No uses** `\usepackage`, `\documentclass`, `\input`, `\include`, `\write`, `\catcode`, `\csname`, `\special` ni `^^`: la herramienta rechaza el documento.
+- Escribí con caracteres normales (á, é, ñ, °, ³, «», —). No uses comandos para los acentos.
+
+## Macros de la plantilla
+- `\nivel{verde}`, `\nivel{amarillo}`, `\nivel{naranja}`, `\nivel{rojo}` y `\nivel{sindatos}`: recuadro de color con el nivel. Usá exactamente esas cinco claves, en minúscula y sin espacios.
 
 ## Estructura
-- Secciones: `\section{...}`, `\subsection{...}`, `\subsubsection{...}`. Con asterisco (`\section*{...}`) no se numeran.
-- Párrafos: separalos con una **línea en blanco**. No uses `\\` para separar párrafos.
-- Negrita `\textbf{...}`, cursiva `\emph{...}`, código en línea `\texttt{...}`.
-- Listas: `\begin{itemize} \item ... \end{itemize}` o `enumerate` (numerada). Cada `\item` va dentro de una lista.
-- Código en bloque: `\begin{verbatim} ... \end{verbatim}` (adentro no se escapa nada; líneas de menos de 80 caracteres).
+- Secciones: `\section{...}` y `\subsection{...}`.
+- Párrafos: separalos con una **línea en blanco**; no uses `\\` para separar párrafos.
+- Negrita `\textbf{...}`, cursiva `\emph{...}`.
+- Listas: `\begin{itemize} \item ... \end{itemize}`; cada `\item` va dentro de una lista.
 - Enlaces: `\url{https://...}` (adentro no se escapa nada).
-- Fórmulas: en línea `$a^2 + b^2 = c^2$`; destacadas `\[ ... \]`; varias líneas `\begin{align*} ... \end{align*}`.
 
-## No uses sintaxis markdown
-Nada de `**negrita**`, `# títulos`, `` `código` `` ni `- ` para listas: en LaTeX aparecen tal cual o dan error.
+## Tablas
+- Tablas cortas (semáforo, caudal): `tabular` con booktabs:
+  `\begin{tabular}{lll} \toprule A & B & C \\ \midrule ... \\ \bottomrule \end{tabular}`
+- Tablas que pueden ocupar más de una página (pronóstico de 7 a 16 días): `longtable`, con el mismo esquema de reglas.
+- Columnas con texto largo: `p{6cm}` en lugar de `l`.
+- Cada fila tiene exactamente tantas `&` como columnas menos una y termina en `\\`.
+- No pongas `\nivel{...}` dentro de una celda `p{...}` junto con texto largo: dejalo en su propia columna.
 
-## Caracteres especiales (escapalos en el texto)
-| Escribir | Para mostrar |
+## Escapado de caracteres
+Fuera de `\url{...}`, estos caracteres se escapan siempre:
+
+| Escribí | Para obtener |
 |---|---|
-| `\&` | & |
 | `\%` | % |
+| `\&` | & |
 | `\$` | $ |
 | `\#` | # |
 | `\_` | _ |
-| `\{` y `\}` | { y } |
-| `\textasciitilde{}` | ~ |
-| `\textasciicircum{}` | ^ |
-| `\textbackslash{}` | \ |
+| `\{` `\}` | { } |
 
-Ejemplos: `15\%`, `\$20`, `nombre\_archivo`, `Q\&A`.
+- Los porcentajes son el error más común: «prob. 60 \%».
+- Las claves con guion bajo (`san_rafael`) se escriben `san\_rafael`, o mejor con el nombre normal: San Rafael.
+- `≥` y `≤` se pueden escribir tal cual.
 
-## Tablas
-- Una columna por letra: `l` izquierda, `c` centro, `r` derecha. Para texto largo usá `p{5cm}` (el ancho total no debe pasar de 16 cm).
-- Cada fila termina en `\\`; el número de `&` por fila es igual al de columnas menos uno.
-- Usá `\toprule`, `\midrule` y `\bottomrule` (no líneas `\hline`).
-
-## Ejemplo completo de cuerpo
-```latex
-\section{Resumen}
-Este informe presenta el \textbf{estado} del inventario. El stock bajó un 15\%
-respecto del mes anterior.
-
-\section{Inventario}
-\begin{tabular}{lrr}
-\toprule
-\textbf{Producto} & \textbf{Precio (\$)} & \textbf{Stock} \\
-\midrule
-Cuaderno & 3 & 120 \\
-Lapicera & 1 & 300 \\
-\bottomrule
-\end{tabular}
-
-\subsection{Conclusiones}
-\begin{itemize}
-  \item Reponer lapiceras antes de fin de mes.
-  \item El margen se calcula como $m = (p - c)/p$.
-\end{itemize}
-
-\section*{Fuentes}
-\begin{itemize}
-  \item \url{https://ejemplo.com/informe}
-\end{itemize}
-```
-
-## Errores frecuentes
-- `&` o `_` o `%` sin escapar fuera de una tabla o de `\url`.
-- Falta un `\end{...}` o hay una lista dentro de otra más de 4 niveles.
-- Filas de tabla con distinta cantidad de columnas.
-- `\item` fuera de una lista.
+## Valores
+- Copiá los números **tal como los devuelven las tools** (mismo redondeo y unidad). No los recalcules ni los redondees de nuevo.
+- Fechas en formato dd/mm.
 
 ## Si la compilación falla
-1. Leé la primera línea del error que empieza con `!` y el número de línea.
-2. Los números de línea cuentan el preámbulo: la herramienta te dice en qué línea empieza el cuerpo. Restá ese valor para ubicar el problema.
-3. Corregí **solo** eso y reintentá (máximo 3 intentos).
+- El error indica la línea del `.tex`; restale la línea donde empieza el cuerpo (viene en el mensaje) para ubicarla en tu texto.
+- Causas típicas: un `%` o `&` sin escapar, una fila de tabla con columnas de más o de menos, una llave sin cerrar.
+- Corregí solo eso y reintentá. Máximo 3 intentos.
