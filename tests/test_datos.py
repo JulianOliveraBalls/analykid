@@ -38,7 +38,12 @@ def test_localidades_tienen_rio_piedemonte_y_emergencias() -> None:
     for clave, l in _cargar("localidades.json")["localidades"].items():
         assert l["rio"] in rios, clave
         assert isinstance(l["piedemonte"], bool), clave
-        assert l["emergencias"]["general"] == "911", clave
+        e = l["emergencias"]
+        assert e["general"] == "911", clave
+        if e["defensa_civil_municipal"]:
+            assert e["fuente"].startswith("https://") and e["verificado"], clave
+        cc = e["contingencias_climaticas"]
+        assert cc["telefono"] and cc["fuente"].startswith("https://www.mendoza.gov.ar/"), clave
 
 
 def test_rios_tienen_punto_de_consulta() -> None:

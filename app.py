@@ -327,9 +327,12 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
             e = pron["emergencias"]
             municipal = e["defensa_civil_municipal"] if e.get("verificado") else None
             st.markdown("**Contactos de emergencia**")
+            cc = e.get("contingencias_climaticas")
             st.markdown(f"📞 Emergencias: **{e['general']}**" +
                         (f"  \n📞 Defensa Civil municipal: **{municipal}**" if municipal else
-                         "  \n_Sin contacto municipal verificado_"))
+                         "  \n_Sin contacto municipal verificado_") +
+                        (f"  \n🌾 Denuncia de daños (Contingencias Climáticas, {cc['delegacion']}): "
+                         f"**{cc['telefono']}**" if cc else ""))
         if pdf and Path(pdf["pdf"]).exists():
             st.download_button("⬇️ Descargar plan (PDF)", Path(pdf["pdf"]).read_bytes(),
                                file_name=Path(pdf["pdf"]).name, mime="application/pdf",

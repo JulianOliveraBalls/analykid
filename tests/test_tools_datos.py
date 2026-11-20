@@ -3,6 +3,7 @@ import importlib
 from datetime import datetime, timedelta, timezone
 
 from tools import enso, river, weather
+from tools.common import cargar_json
 
 # `tools.web_search` es también el nombre de la tool que exporta el paquete.
 web_search = importlib.import_module("tools.web_search")
@@ -178,3 +179,11 @@ def test_redactar_marca_alertas_y_respaldo_provincial():
 def test_redactar_sin_resultados():
     texto = web_search.redactar([], 3, "Mendoza", "Tupungato", 48, "20/11/2026 12:00")
     assert texto.startswith("Sin alertas oficiales encontradas al 20/11/2026 12:00; no implica ausencia de riesgo")
+
+
+def test_contactos_para_el_modelo() -> None:
+    locs = cargar_json("localidades.json")["localidades"]
+    tupungato = weather._contactos(locs["tupungato"]["emergencias"])
+    assert "Defensa Civil municipal 2622 574912" in tupungato
+    assert "Contingencias Climáticas, delegación Valle de Uco (Tunuyán), 02622 423036" in tupungato
+    assert "sin contacto municipal verificado" in weather._contactos(locs["maipu"]["emergencias"])

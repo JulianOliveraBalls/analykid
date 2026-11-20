@@ -15,7 +15,7 @@ Usá estos títulos de `\section` en este orden (create_pdf verifica cómo empie
 8. **Medidas por amenaza**: una `\subsection` por amenaza en amarillo o más (la sanitaria primero si la vid está en período crítico). Adentro, tres bloques con las fechas que dio evaluate_risk, escritos tal cual: `\textbf{Antes (20/11 al 23/11):}`, `\textbf{Durante (24/11):}` y `\textbf{Después (25/11 al 27/11):}`. Al menos una medida por bloque y 3 citas [Documento — Sección] por amenaza. Las medidas salen del corpus para esta finca: no copies las del ejemplo.
 9. **Escalamiento**: los disparadores de evaluate_risk y qué cambia en cada caso (por ejemplo, suspender tareas, evacuar sectores bajos, avisar a Defensa Civil).
 10. **Checklist y organización del personal**: quién avisa y decide, dónde refugiarse, y una lista con `\item[\casilla]`.
-11. **Contactos de emergencia**: copiados tal cual; sin contacto municipal verificado, solo 911.
+11. **Contactos de emergencia**: copiados tal cual de get_weather_forecast: 911, Defensa Civil municipal (si no está verificada, decilo) y Contingencias Climáticas para denunciar daños de granizo o lluvia en la finca.
 12. **Fuentes**: datos (NOAA, Open-Meteo, Flood API, alertas con URL) y cada documento citado.
 13. **Limitaciones**: CAPE indirecto, GloFAS sin embalses, etapa aproximada, umbrales del equipo (salvo el sanitario), puntos sin verificar y tools con error.
 
@@ -91,7 +91,7 @@ El encargado sigue las alertas y corta las tareas.
 \end{itemize}
 
 \section{Contactos de emergencia}
-Emergencias: 911.
+Emergencias: 911. Defensa Civil de Tupungato: 2622 574912 (guardia 24 h). Denuncia de daños: Contingencias Climáticas, delegación Valle de Uco (Tunuyán), 02622 423036.
 
 \section{Fuentes}
 Open-Meteo: \url{https://open-meteo.com}. Corpus: Peronóspora de la vid después de la lluvia; Finca y viñedo ante aluvión, crecida o inundación.

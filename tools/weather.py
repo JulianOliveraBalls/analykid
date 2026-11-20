@@ -111,8 +111,11 @@ def _redondear(dias: list[dict], ind: dict) -> dict:
 def _contactos(e: dict) -> str:
     municipal = e.get("defensa_civil_municipal")
     if municipal and e.get("verificado"):
-        return f"emergencias {e['general']}; Defensa Civil municipal {municipal}"
-    return f"emergencias {e['general']} (sin contacto municipal verificado)"
+        texto = f"emergencias {e['general']}; Defensa Civil municipal {municipal}"
+    else:
+        texto = f"emergencias {e['general']} (sin contacto municipal verificado)"
+    cc = e["contingencias_climaticas"]
+    return f"{texto}; denuncia de daños agrícolas: Contingencias Climáticas, {cc['delegacion']}, {cc['telefono']}"
 
 
 def texto_para_modelo(clave: str, loc: dict, dias: list[dict], ind: dict) -> str:
