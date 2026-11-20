@@ -163,6 +163,19 @@ def validar(cuerpo: str, riesgo: dict) -> list[str]:
             if f"{etiqueta} ({v[clave]})" not in apartado:
                 problemas.append(f"Medidas de {nombre}: falta «{etiqueta} ({v[clave]})»")
         problemas += _problemas_de_medidas(nombre, apartado)
+    verdes = [a["amenaza"] for a in riesgo["amenazas"] if a["nivel"] == "verde"]
+    for nombre in verdes:
+        if ETIQUETA.search(_subseccion(medidas, nombre)):
+            problemas.append(f"{nombre} está en verde: no lleva medidas con Antes/Durante/Después; "
+                             f"nombrala en la subsección «Vigilancia»")
+    if verdes:
+        vigilancia = _subseccion(medidas, "Vigilancia")
+        faltan = [n for n in verdes if _plano(n.split(" /")[0]) not in _plano(vigilancia)]
+        if not vigilancia:
+            problemas.append("«Medidas» no tiene la subsección «Vigilancia» para las amenazas en verde: "
+                             + ", ".join(verdes))
+        elif faltan:
+            problemas.append("«Vigilancia» no nombra: " + ", ".join(faltan))
     for nombre in activas:
         citas = len(CITA.findall(_subseccion(medidas, nombre)))
         if citas < CITAS_POR_AMENAZA:

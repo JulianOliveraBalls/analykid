@@ -80,7 +80,7 @@ Ocho tools en el paquete `tools/`. Las cuatro de datos y `evaluate_risk` son pro
 - **`get_weather_forecast`:** el modelo nunca pasa coordenadas ni elige variables (las variables están en `datos/variables.json`). Localidad inexistente → error con las 3 claves más parecidas (`difflib.get_close_matches`).
 - **`get_river_discharge`:** cada punto de `rios.json` se verifica a mano antes de cargarlo (la API toma el río más grande en 5 km). La media sale de `datos/climatologia/<rio>.json`, generada una vez por `scripts/calcular_climatologia.py` (1991-2020, ±15 días); `river_discharge_mean` de la API es la media del ensamble, no histórica.
 - **`web_search`:** llama a la API REST de Tavily con `topic="news"` y `time_range="week"`; descarta en código los resultados de otros dominios, de más de 48 horas o sin fecha. Sin clave o sin red → `ERROR` y el agente sigue sin alertas.
-- **`create_pdf`:** `--untrusted`, sin shell, lista de comandos prohibidos, timeout de 180 s. Antes de compilar, `validar()` exige las 13 secciones (más «Etapa» en vid), los niveles del semáforo iguales a `evaluate_risk`, «Antes (fechas)», «Durante (fechas)» y «Después (fechas)» por amenaza activa al menos 3 citas por amenaza activa, y cada bloque como lista con 2, 1 y 2 medidas como mínimo, de al menos 80 caracteres sin la cita (qué hacer, cómo, qué mirar y dónde). Plantilla con `xcolor`, `longtable`, macros `\nivel{verde|amarillo|naranja|rojo|sindatos|noaplica}` y `\casilla`, y pie con el descargo «Este informe no reemplaza las alertas oficiales del SMN ni las indicaciones de Defensa Civil».
+- **`create_pdf`:** `--untrusted`, sin shell, lista de comandos prohibidos, timeout de 180 s. Antes de compilar, `validar()` exige las 13 secciones (más «Etapa» en vid), los niveles del semáforo iguales a `evaluate_risk`, «Antes (fechas)», «Durante (fechas)» y «Después (fechas)» por amenaza activa al menos 3 citas por amenaza activa, y cada bloque como lista con 2, 1 y 2 medidas como mínimo, de al menos 80 caracteres sin la cita (qué hacer, cómo, qué mirar y dónde). Las amenazas en verde no pueden llevar bloques con fechas y deben aparecer en «Vigilancia». Plantilla con `xcolor`, `longtable`, macros `\nivel{verde|amarillo|naranja|rojo|sindatos|noaplica}` y `\casilla`, y pie con el descargo «Este informe no reemplaza las alertas oficiales del SMN ni las indicaciones de Defensa Civil».
 
 ## 5. Semáforo: umbrales y reglas
 
@@ -105,6 +105,7 @@ El umbral sanitario sigue la regla 10:10:24 de la peronóspora; los demás son s
 7. Crecida en amarillo o más con lluvia intensa prevista → destacar la combinación lluvia + canales con agua (los ríos están regulados por embalses).
 8. Etapa de la vid (`datos/fenologia.json`): si la fecha cae en el período crítico de peronóspora del oasis, las medidas sanitarias van primero; el nivel no cambia.
 9. **Ventanas por amenaza activa:** «antes» va de hoy (primer día del pronóstico) al día previo al evento; «durante», los días del evento; «después», 1 a 3 días posteriores (5 a 10 en la sanitaria, cuando aparecen las manchas).
+10. **Amenazas en verde:** no llevan medidas con fechas; van en la subsección «Vigilancia» con lo que las activaría. Si ninguna está activa, el informe dice que no hay medidas obligatorias.
 
 ## 6. Conocimiento propio: RAG y skills
 
