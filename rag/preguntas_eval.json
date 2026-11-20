@@ -1,0 +1,17 @@
+{
+  "_descripcion": "Preguntas de evaluación del RAG: 2 por documento, redactadas como las consultaría el agente (sin copiar los títulos). Métrica: acierto@4 (el documento esperado aparece entre los 4 fragmentos) y posición media del primer acierto.",
+  "preguntas": [
+    {"pregunta": "qué señales indican que se viene un aluvión en la quebrada", "documento": "aluviones_piedemonte.md"},
+    {"pregunta": "cómo evacuar una zona de piedemonte cuando baja el agua con barro y piedras", "documento": "aluviones_piedemonte.md"},
+    {"pregunta": "cómo drenar el viñedo inundado en los primeros días", "documento": "finca_aluvion_inundacion.md"},
+    {"pregunta": "limpiar acequias y canales de riego tapados con barro después de una crecida", "documento": "finca_aluvion_inundacion.md"},
+    {"pregunta": "pico de caudal de los ríos de Mendoza esta temporada por el deshielo", "documento": "temporada_2026_2027_mendoza.md"},
+    {"pregunta": "emergencia hidrometeorológica declarada por el gobierno provincial", "documento": "temporada_2026_2027_mendoza.md"},
+    {"pregunta": "cuándo suspender la cosecha o la poda si se escuchan truenos", "documento": "tormenta_electrica_trabajo_campo.md"},
+    {"pregunta": "primeros auxilios a un trabajador alcanzado por un rayo", "documento": "tormenta_electrica_trabajo_campo.md"},
+    {"pregunta": "cómo evaluar el daño en los racimos y brotes después de una granizada", "documento": "vid_granizo.md"},
+    {"pregunta": "cuándo desplegar la malla antigranizo en el viñedo", "documento": "vid_granizo.md"},
+    {"pregunta": "condiciones de lluvia y temperatura para la infección de peronóspora", "documento": "vid_peronospora_lluvia.md"},
+    {"pregunta": "tratamiento preventivo de hongos en la vid antes de una lluvia pronosticada", "documento": "vid_peronospora_lluvia.md"}
+  ]
+}

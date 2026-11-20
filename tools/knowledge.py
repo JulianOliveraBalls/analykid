@@ -64,7 +64,8 @@ def search_knowledge_base(consulta: str, runtime: ToolRuntime[Context]) -> Comma
     bloques, fuentes, reporte = [], [], []
     for i, c in enumerate(chunks, 1):
         m = c.metadata
-        documento, seccion = m.get("titulo", m["source"]), m.get("seccion", "")
+        documento = m.get("titulo", m["source"]).split(" — ")[0]   # título corto para la cita
+        seccion = m.get("seccion", "")
         origen = ", ".join(x for x in (m.get("organismo"), m.get("ambito")) if x)
         bloques.append(f"[{i}] {documento} — {seccion} ({origen})\n{c.page_content}")
         fuentes.append({
