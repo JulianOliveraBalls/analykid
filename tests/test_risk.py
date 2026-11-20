@@ -233,6 +233,24 @@ def test_validar_exige_las_fechas_de_cada_ventana():
                                                  "despues": "25/11 al 27/11"}}}
     problemas = validar(_cuerpo(FILAS_OK, MEDIDAS_OK), riesgo)
     assert "Medidas de Pluvial: falta «Antes (20/11 al 23/11)»" in problemas
-    medidas = (r"\subsection{Pluvial} \item \textbf{Antes (20/11 al 23/11):} a [Doc — Sec] "
-               r"\item \textbf{Durante (24/11):} b [Doc — Otra] \item \textbf{Después (25/11 al 27/11):} c [Doc — Tercera]")
-    assert validar(_cuerpo(FILAS_OK, medidas), riesgo) == []
+    assert validar(_cuerpo(FILAS_OK, _medidas_pluvial()), riesgo) == []
+
+
+LARGA = "Limpiar acequias y desagües de la finca y sacar ramas y basura para que el agua no anegue las zonas bajas"
+
+
+def _medidas_pluvial(antes=(LARGA, LARGA), durante=(LARGA,), despues=(LARGA, LARGA)) -> str:
+    def bloque(etiqueta, medidas):
+        items = " ".join(rf"\item {m} [Doc — Sec {i}]" for i, m in enumerate(medidas))
+        return rf"\textbf{{{etiqueta}:}} \begin{{itemize}} {items} \end{{itemize}} "
+    return (r"\subsection{Pluvial} " + bloque("Antes (20/11 al 23/11)", antes)
+            + bloque("Durante (24/11)", durante) + bloque("Después (25/11 al 27/11)", despues))
+
+
+def test_validar_exige_medidas_detalladas_en_cada_bloque():
+    riesgo = {**RIESGO, "ventanas": {"Pluvial": {"antes": "20/11 al 23/11", "durante": "24/11",
+                                                 "despues": "25/11 al 27/11"}}}
+    problemas = validar(_cuerpo(FILAS_OK, _medidas_pluvial(antes=(LARGA,), despues=(LARGA, "drenar el agua"))), riesgo)
+    assert any(p.startswith("Medidas de Pluvial, Antes: 1 medida(s)") for p in problemas)
+    assert any("«drenar el agua» es muy corta" in p for p in problemas)
+    assert not any("Durante" in p for p in problemas)

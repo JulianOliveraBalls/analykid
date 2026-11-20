@@ -9,7 +9,7 @@ from tools.common import BASE_DIR, Context, error, respond
 
 SKILLS_DIR = BASE_DIR / "skills"
 K = 4                  # fragmentos por consulta (4 × ≤ 900 caracteres)
-MAX_SKILL = 7000       # caracteres máximos de una skill (~1.750 tokens)
+MAX_SKILL = 9000       # caracteres máximos de una skill (~2.250 tokens)
 
 
 _lock = threading.Lock()

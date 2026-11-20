@@ -72,6 +72,11 @@ SECCIONES = ["Resumen", "Contexto", "Pronóstico", "Caudal", "Alertas", "Semáfo
              "Escalamiento", "Checklist", "Contactos", "Fuentes", "Limitaciones"]
 CITAS_POR_AMENAZA = 3
 CITA = re.compile(r"\[[^\]]+ — [^\]]+\]")
+# Medidas mínimas por bloque y largo mínimo de cada una (sin la cita ni comandos LaTeX):
+# una línea como «revisar la malla» no dice qué mirar, cómo ni dónde.
+MIN_MEDIDAS = {"Antes": 2, "Durante": 1, "Después": 2}
+MIN_CARACTERES_MEDIDA = 80
+ETIQUETA = re.compile(r"\\textbf\{(Antes|Durante|Después) \(")
 
 
 def _plano(texto: str) -> str:
@@ -92,6 +97,43 @@ def _subseccion(texto: str, amenaza: str) -> str:
     buscado = _plano(amenaza.split(" /")[0])
     return next((partes[i + 1] for i in range(1, len(partes) - 1, 2)
                  if _plano(partes[i]).strip().startswith(buscado)), "")
+
+
+def _bloques(apartado: str) -> dict[str, str]:
+    """Texto de cada bloque \\textbf{Antes|Durante|Después (...)} del apartado de una amenaza."""
+    marcas = list(ETIQUETA.finditer(apartado))
+    bloques = {}
+    for i, m in enumerate(marcas):
+        fin = marcas[i + 1].start() if i + 1 < len(marcas) else len(apartado)
+        bloques.setdefault(m.group(1), apartado[m.end():fin])
+    return bloques
+
+
+def _medidas(bloque: str) -> list[str]:
+    """Cada \\item del bloque, sin la cita ni comandos LaTeX."""
+    medidas = []
+    for item in re.split(r"\\item\b", bloque)[1:]:
+        texto = CITA.sub("", item.split(r"\end{itemize}")[0])
+        texto = re.sub(r"\\[a-zA-Z]+|[{}]", "", texto)
+        medidas.append(" ".join(texto.split()))
+    return medidas
+
+
+def _problemas_de_medidas(nombre: str, apartado: str) -> list[str]:
+    problemas = []
+    for etiqueta, minimo in MIN_MEDIDAS.items():
+        bloque = _bloques(apartado).get(etiqueta)
+        if bloque is None:
+            continue                       # ya lo informa el control de ventanas
+        medidas = _medidas(bloque)
+        if len(medidas) < minimo:
+            problemas.append(f"Medidas de {nombre}, {etiqueta}: {len(medidas)} medida(s); se esperan al "
+                             f"menos {minimo}, cada una como \\item en una lista itemize debajo de la etiqueta")
+        for m in medidas:
+            if len(m) < MIN_CARACTERES_MEDIDA:
+                problemas.append(f"Medidas de {nombre}, {etiqueta}: «{m[:50]}» es muy corta; decí qué hacer, "
+                                 f"cómo, qué mirar y dónde, con el detalle del fragmento citado")
+    return problemas
 
 
 def validar(cuerpo: str, riesgo: dict) -> list[str]:
@@ -120,6 +162,7 @@ def validar(cuerpo: str, riesgo: dict) -> list[str]:
         for etiqueta, clave in (("Antes", "antes"), ("Durante", "durante"), ("Después", "despues")):
             if f"{etiqueta} ({v[clave]})" not in apartado:
                 problemas.append(f"Medidas de {nombre}: falta «{etiqueta} ({v[clave]})»")
+        problemas += _problemas_de_medidas(nombre, apartado)
     for nombre in activas:
         citas = len(CITA.findall(_subseccion(medidas, nombre)))
         if citas < CITAS_POR_AMENAZA:

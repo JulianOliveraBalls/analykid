@@ -12,7 +12,11 @@ Usá estos títulos de `\section` en este orden (create_pdf verifica cómo empie
 5. **Caudal del río**: máximo y fecha, media 1991-2020, cociente, tendencia y la limitación de los embalses.
 6. **Alertas oficiales y contraste de fuentes**: alertas (marcadas ALERTA) con dominio, fecha y URL, o «Sin alertas oficiales encontradas al <fecha>; no implica ausencia de riesgo». Después, qué dicen el pronóstico, las alertas y el corpus, si coinciden y cuál prima.
 7. **Semáforo**: las cinco filas con el nivel de evaluate_risk **tal cual** (`Pluvial & \nivel{amarillo} & motivo (umbral; origen) \\`).
-8. **Medidas por amenaza**: una `\subsection` por amenaza en amarillo o más (la sanitaria primero si la vid está en período crítico). Adentro, tres bloques con las fechas que dio evaluate_risk, escritos tal cual: `\textbf{Antes (20/11 al 23/11):}`, `\textbf{Durante (24/11):}` y `\textbf{Después (25/11 al 27/11):}`. Al menos una medida por bloque y 3 citas [Documento — Sección] por amenaza. Las medidas salen del corpus para esta finca: no copies las del ejemplo.
+8. **Medidas por amenaza**: una `\subsection` por amenaza en amarillo o más (la sanitaria primero si la vid está en período crítico). Adentro, tres bloques con las fechas que dio evaluate_risk, escritas tal cual: `\textbf{Antes (20/11 al 23/11):}`, `\textbf{Durante (24/11):}` y `\textbf{Después (25/11 al 27/11):}`, cada uno seguido de su lista `itemize`: al menos 2 medidas en Antes y en Después, y 1 en Durante.
+   - Cada medida dice **qué hacer, cómo, qué mirar y dónde** (o quién), con el detalle del fragmento que citás: cantidades, plazos, partes de la planta, lugares de la finca. «Revisar la malla» o «evaluar daños» no alcanzan: decí qué revisar y en qué orden.
+   - Si la medida nombra una regla (30/30, 10:10:24), explicala ahí mismo.
+   - Cada medida lleva su cita [Documento — Sección]. Si te falta detalle, hacé una búsqueda más específica en search_knowledge_base antes de escribir.
+   - Las medidas salen del corpus para esta finca: no copies las del ejemplo.
 9. **Escalamiento**: los disparadores de evaluate_risk y qué cambia en cada caso (por ejemplo, suspender tareas, evacuar sectores bajos, avisar a Defensa Civil).
 10. **Checklist y organización del personal**: quién avisa y decide, dónde refugiarse, y una lista con `\item[\casilla]`.
 11. **Contactos de emergencia**: copiados tal cual de get_weather_forecast: 911, Defensa Civil municipal (si no está verificada, decilo) y Contingencias Climáticas para denunciar daños de granizo o lluvia en la finca.
@@ -68,16 +72,34 @@ Sanitaria & \nivel{amarillo} & 1 día favorable a hongos (≥ 1; regla 10:10:24)
 
 \section{Medidas por amenaza}
 \subsection{Sanitaria (prioridad: período crítico)}
+\textbf{Antes (20/11 al 23/11):}
 \begin{itemize}
-\item \textbf{Antes (20/11 al 23/11):} protector el 23/11, cubriendo el envés [Peronóspora de la vid después de la lluvia — Estrategia preventiva: tratar antes de la lluvia].
-\item \textbf{Durante (24/11):} sin tractor, solo vale lo aplicado antes [Peronóspora de la vid después de la lluvia — Estrategia preventiva: tratar antes de la lluvia].
-\item \textbf{Después (29/11 al 04/12):} buscar manchas de aceite [Peronóspora de la vid después de la lluvia — Monitoreo del viñedo después de la lluvia].
+\item Aplicar el protector el 23/11, lo más cerca posible de la lluvia, cubriendo el envés de las hojas y la parte de atrás de los racimos: la barrera impide que entren las esporas [Peronóspora de la vid después de la lluvia — Estrategia preventiva: tratar antes de la lluvia].
+\item En floración, acortar el intervalo entre aplicaciones a 5 a 7 días: dejar prevista la siguiente para el 28/11 al 30/11 [Peronóspora de la vid después de la lluvia — Estrategia preventiva: tratar antes de la lluvia].
+\end{itemize}
+\textbf{Durante (24/11):}
+\begin{itemize}
+\item Anotar la lluvia en el pluviómetro y la mínima en el termómetro de máximas y mínimas: con ≥ 10 mm y ≥ 10 °C en 24 h (regla 10:10:24) hay riesgo de infección [Peronóspora de la vid después de la lluvia — Monitoreo del viñedo después de la lluvia].
+\end{itemize}
+\textbf{Después (29/11 al 04/12):}
+\begin{itemize}
+\item Recorrer unas 200 plantas representativas entre media mañana y media tarde, mirando las dos caras de las hojas [Peronóspora de la vid después de la lluvia — Monitoreo del viñedo después de la lluvia].
+\item Buscar manchas de aceite amarillas de 1 cm en la cara superior de las hojas nuevas, con polvillo blanco en el envés, y zonas pardas en los racimos [Peronóspora de la vid después de la lluvia — Síntomas para reconocer la peronóspora].
 \end{itemize}
 \subsection{Pluvial}
+\textbf{Antes (20/11 al 23/11):}
 \begin{itemize}
-\item \textbf{Antes (20/11 al 23/11):} limpiar acequias y desagües [Finca y viñedo ante aluvión, crecida o inundación — Antes del aluvión o la inundación: preparación de la finca].
-\item \textbf{Durante (24/11):} no circular por zonas anegadas [Aluviones en zonas de piedemonte y cordillera — Durante un aluvión: si se está en un lugar seguro].
-\item \textbf{Después (25/11 al 27/11):} drenar el agua [Finca y viñedo ante aluvión, crecida o inundación — Después: drenar el viñedo en los primeros 3 días].
+\item Limpiar acequias, desagües y cauces de la finca y sacar basura y ramas: si están tapados, el agua escurre por donde no debe y anega las zonas bajas [Finca y viñedo ante aluvión, crecida o inundación — Antes del aluvión o la inundación: preparación de la finca].
+\item Sacar personas, vehículos y maquinaria de badenes, puentes y desembocaduras de cauces, e incluir a los animales en el plan [Finca y viñedo ante aluvión, crecida o inundación — Antes del aluvión o la inundación: preparación de la finca].
+\end{itemize}
+\textbf{Durante (24/11):}
+\begin{itemize}
+\item Quedarse en la casa o un edificio cerrado y no circular a pie ni en vehículo: con agua no se ven caminos ni acequias [Aluviones en zonas de piedemonte y cordillera — Durante un aluvión: si se está en un lugar seguro].
+\end{itemize}
+\textbf{Después (25/11 al 27/11):}
+\begin{itemize}
+\item Drenar o bombear el agua dentro de los 3 días: zanja poco profunda por el centro de la calle y pozo de bombeo donde el agua quedó encerrada [Finca y viñedo ante aluvión, crecida o inundación — Después: drenar el viñedo en los primeros 3 días].
+\item Limpiar canales y pozos con barro antes de regar; si las raíces se dañaron, regar con cuidado para evitar el estrés hídrico [Finca y viñedo ante aluvión, crecida o inundación — Después: canales, acequias y riego].
 \end{itemize}
 
 \section{Escalamiento}
