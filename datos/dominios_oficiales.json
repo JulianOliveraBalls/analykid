@@ -1,0 +1,12 @@
+{
+  "_descripcion": "Lista cerrada de dominios para web_search. Se pasa a Tavily como include_domains; además la tool descarta en código cualquier resultado cuyo dominio no esté acá o que tenga más horas de antigüedad que 'antiguedad_maxima_horas'.",
+  "dominios": [
+    {"dominio": "smn.gob.ar", "organismo": "Servicio Meteorológico Nacional"},
+    {"dominio": "mendoza.gov.ar", "organismo": "Gobierno de Mendoza (Defensa Civil, Contingencias Climáticas)"},
+    {"dominio": "irrigacion.gov.ar", "organismo": "Departamento General de Irrigación"},
+    {"dominio": "ina.gob.ar", "organismo": "Instituto Nacional del Agua"}
+  ],
+  "antiguedad_maxima_horas": 48,
+  "max_resultados": 3,
+  "plantilla_consulta": "alerta tormenta Mendoza {zona}"
+}

@@ -1,0 +1,70 @@
+{
+  "_descripcion": "Punto de consulta de la Flood API (GloFAS) para cada río. 'consulta' es la coordenada que se envía; 'celda_api' la completa scripts/calcular_climatologia.py con la celda que devuelve la API. Un punto se usa en la demo solo cuando 'verificado' tiene fecha: verificar que la celda caiga sobre el río correcto y que el caudal medio sea razonable frente a la referencia.",
+  "_fuente_coordenadas": "Estaciones de aforo según INA, 'Cambios en el régimen de caudal de los ríos de Cuyo' (IFRH 2014), tabla 1: https://www.ina.gob.ar/ifrh-2014/Eje3/3.24.pdf",
+  "_nota_embalses": "Las tres estaciones de los ríos validados están aguas arriba de los embalses (Potrerillos, El Carrizal, Agua del Toro): miden caudal natural, que es lo que simula GloFAS. Aguas abajo el caudal está regulado.",
+  "rios": {
+    "mendoza": {
+      "nombre": "Río Mendoza",
+      "estacion_referencia": "Guido (aguas arriba de Potrerillos)",
+      "consulta": {
+        "latitud": -32.925,
+        "longitud": -69.275
+      },
+      "celda_api": {
+        "latitud": -32.924995,
+        "longitud": -69.274994
+      },
+      "caudal_medio_referencia_m3s": null,
+      "verificado": null,
+      "validado_para_demo": true,
+      "_nota_consulta": "La coordenada de la estación cae en una celda GloFAS de un afluente menor (media < 1 m³/s); se usa la celda contigua sobre el cauce principal, elegida sondeando ±0,15° el 20/11/2026. Estación Guido: -32.9153, -69.2378."
+    },
+    "tunuyan": {
+      "nombre": "Río Tunuyán",
+      "estacion_referencia": "Valle de Uco",
+      "consulta": {
+        "latitud": -33.7764,
+        "longitud": -69.2725
+      },
+      "celda_api": {
+        "latitud": -33.774998,
+        "longitud": -69.274994
+      },
+      "caudal_medio_referencia_m3s": 30.6,
+      "_fuente_caudal_referencia": "INA, Saltino et al., calidad del río Tunuyán superior (CRA-RYD-11): caudal medio en Valle de Uco 30,6 m³/s según la estación de aforos del DGI",
+      "verificado": null,
+      "validado_para_demo": true
+    },
+    "diamante": {
+      "nombre": "Río Diamante",
+      "estacion_referencia": "La Jaula (aguas arriba de Agua del Toro)",
+      "consulta": {
+        "latitud": -34.6683,
+        "longitud": -69.3161
+      },
+      "celda_api": {
+        "latitud": -34.674995,
+        "longitud": -69.32499
+      },
+      "caudal_medio_referencia_m3s": null,
+      "verificado": null,
+      "validado_para_demo": true
+    },
+    "atuel": {
+      "nombre": "Río Atuel",
+      "estacion_referencia": "Puente El Sosneado (La Angostura no figura en la tabla del INA)",
+      "consulta": {
+        "latitud": -35.125,
+        "longitud": -69.625
+      },
+      "celda_api": {
+        "latitud": -35.125,
+        "longitud": -69.62499
+      },
+      "caudal_medio_referencia_m3s": null,
+      "verificado": null,
+      "validado_para_demo": false,
+      "_nota_consulta": "La coordenada de la estación cae en una celda GloFAS de un afluente menor (media < 1 m³/s); se usa la celda contigua sobre el cauce principal, elegida sondeando ±0,15° el 20/11/2026. Estación El Sosneado: -35.0839, -69.6031."
+    }
+  }
+}

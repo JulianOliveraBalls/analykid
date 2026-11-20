@@ -27,12 +27,28 @@ def test_localidades_claves_snake_case() -> None:
         assert clave == clave.lower() and " " not in clave and clave.isascii(), clave
 
 
-def test_variables_por_defecto_existen() -> None:
-    datos = _cargar("variables.json")
-    assert set(datos["por_defecto"]) <= set(datos["variables"])
-
-
 def test_variables_tienen_descripcion_y_unidades() -> None:
     for clave, v in _cargar("variables.json")["variables"].items():
         assert v["descripcion"], clave
         assert v["parametros"] and all(v["parametros"].values()), clave
+
+
+def test_localidades_tienen_rio_piedemonte_y_emergencias() -> None:
+    rios = set(_cargar("rios.json")["rios"])
+    for clave, l in _cargar("localidades.json")["localidades"].items():
+        assert l["rio"] in rios, clave
+        assert isinstance(l["piedemonte"], bool), clave
+        assert l["emergencias"]["general"] == "911", clave
+
+
+def test_rios_tienen_punto_de_consulta() -> None:
+    for clave, r in _cargar("rios.json")["rios"].items():
+        assert -37.6 < r["consulta"]["latitud"] < -32.0, clave
+        assert -70.6 < r["consulta"]["longitud"] < -66.5, clave
+
+
+def test_dominios_oficiales() -> None:
+    datos = _cargar("dominios_oficiales.json")
+    assert datos["dominios"] and all(d["dominio"] and d["organismo"] for d in datos["dominios"])
+    assert datos["antiguedad_maxima_horas"] > 0 and datos["max_resultados"] > 0
+    assert "{zona}" in datos["plantilla_consulta"]

@@ -251,7 +251,9 @@ output/
 # Material de la cátedra (PDF y notebooks de teoría): queda local, no es nuestro
 teoria/
 # HTML intermedio de docs/herramientas/md2pdf.py
-docs/**/*.html
+/docs/**/*.html
 # Docs de estudio, entregas y branding: quedan locales; al repo va el código y lo que pide la consigna
-docs/
+/docs/
 branding/
+# Caché de get_enso_status (la tool la crea; el respaldo versionado está en datos/respaldo/)
+datos/cache/
