@@ -27,7 +27,7 @@ UMBRALES = {   # amarillo, naranja, rojo
 }
 ALUVIONAL = ((10, 1000), (20, 1500), (35, 2000))   # (lluvia mm, CAPE J/kg) por nivel
 PROB_SUBE_GRANIZO = 60
-MAX_CONSULTAS = 6
+MAX_CONSULTAS = 7   # incluida la de temporada, que va siempre
 
 # Palabras de una alerta oficial que indican a qué amenaza se refiere.
 ALERTA_AMENAZA = {
@@ -40,7 +40,8 @@ ALERTA_COLOR = {"amarill": 1, "naranja": 2, "roj": 3}
 
 CONSULTAS = {
     "Pluvial": "preparación de la finca ante lluvias intensas, drenaje y anegamiento",
-    "Granizo / tormenta": "malla antigranizo y manejo de la vid después del granizo",
+    "Granizo / tormenta": "revisar la malla antigranizo, postes y anclajes antes del granizo",
+    "Daño por granizo": "qué revisar en cada planta después del granizo y cómo evaluar el daño",
     "Tormenta eléctrica": "trabajo en el campo con tormentas eléctricas, cuándo cortar y refugio",
     "Aluvional": "aluvión en piedemonte, señales de alerta y evacuación",
     "Crecida": "crecida de río, canales y acequias en la finca",
@@ -267,9 +268,9 @@ def consultas_sugeridas(amenazas: list[dict], etapa: dict | None, perfil: str | 
             continue
         consultas.append(CONSULTAS[n])
         if n == "Granizo / tormenta":
-            consultas.append(CONSULTAS["Tormenta eléctrica"])
-    consultas.append(CONSULTAS["Temporada"])
-    return list(dict.fromkeys(consultas))[:MAX_CONSULTAS]
+            consultas += [CONSULTAS["Daño por granizo"], CONSULTAS["Tormenta eléctrica"]]
+    # La de temporada va siempre: se recorta lo menos grave, no el contexto.
+    return list(dict.fromkeys(consultas))[:MAX_CONSULTAS - 1] + [CONSULTAS["Temporada"]]
 
 
 def evaluar_turno(resultados: dict, perfil: str, hoy: date) -> dict:

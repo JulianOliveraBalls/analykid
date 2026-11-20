@@ -117,7 +117,15 @@ def test_consultas_priorizan_sanitaria_en_periodo_critico():
     etapa = {"periodo_critico": True}
     consultas = consultas_sugeridas(amenazas, etapa, "vid")
     assert consultas[0].startswith("peronóspora") and consultas[-1].startswith("temporada")
-    assert len(consultas) <= 6
+    assert len(consultas) <= 7
+
+
+def test_consultas_conservan_la_temporada_con_todas_las_amenazas_activas():
+    amenazas = [{"amenaza": a, "nivel": "rojo"} for a in
+                ("Pluvial", "Granizo / tormenta", "Aluvional", "Crecida", "Sanitaria")]
+    consultas = consultas_sugeridas(amenazas, None, "vid")
+    assert len(consultas) == 7 and consultas[-1].startswith("temporada")
+    assert any(c.startswith("qué revisar en cada planta") for c in consultas)
 
 
 def test_consultas_sin_sanitaria_para_otros_perfiles():

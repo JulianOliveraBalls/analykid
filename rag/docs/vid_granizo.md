@@ -25,6 +25,20 @@ fuentes:
     ambito: internacional
     url: https://cdn-de.agrilife.org/extension/departments/hort/hort-pu-273/publication/files/hail-netting-for-vineyards.pdf
     nota: Traducido y resumido del inglés.
+  - id: mza_malla
+    organismo: Administradora Provincial del Fondo para la Transformación y el Crecimiento de Mendoza
+    documento: 'Resolución N° 34/2010, Anexo C "Instructivo para la colocación de malla antigranizo" (Ley Provincial N° 8.159), Boletín Oficial de Mendoza del 26 de mayo de 2010'
+    anio: 2010
+    ambito: local
+    url: https://www.mendoza.gov.ar/wp-content/uploads/boletin.old/20100526-28657-normas.pdf
+    nota: Requisitos técnicos para los proyectos financiados por la línea de crédito de la Ley 8.159; se usan como referencia de cómo debe estar la estructura.
+  - id: portal_fruticola
+    organismo: Portal Frutícola (medio técnico especializado, sin organismo oficial citado para esta parte)
+    documento: '"Protección de frutales contra granizo y microtornados en floración: guía técnica completa", secciones de mantenimiento y plan de acción (1 de septiembre de 2026)'
+    anio: 2026
+    ambito: internacional
+    url: https://www.portalfruticola.com/noticias/2026/09/01/proteccion-de-frutales/
+    nota: Única fuente encontrada con una rutina de revisión de la malla; no es un organismo oficial.
 ---
 
 # Granizo en la vid
@@ -37,6 +51,34 @@ Documento del corpus de AnalyKid para la amenaza de granizo con perfil vid: cóm
 - Se sujeta a un alambre guía por encima de la canopia y se asegura por debajo de ella. El tejido es flexible: absorbe la energía del granizo sin dañar la fruta ni la canopia.
 - Para trabajar en el viñedo, la malla se enrolla y se ata al alambre superior; para la cosecha mecánica se corre fuera de la zona de racimos. Después de la cosecha se deja asegurada hasta la poda final del invierno siguiente.
 Fuente: texas_am
+
+## Antes del granizo: revisar la malla en las hileras
+
+Recorrer las hileras antes de la tormenta y revisar:
+- Que la malla esté desplegada alrededor de los brotes, sujeta al alambre guía por encima de la canopia y asegurada por debajo. Si quedó enrollada en el alambre superior después de una tarea, no protege.
+
+Fuente: texas_am
+
+- Desgarros y agujeros (por viento, aves o maquinaria): repararlos antes del evento.
+- Hojas y ramas enganchadas: sacarlas.
+- Tensión: revisarla con regularidad, para que no se formen bolsas donde se acumula el hielo.
+- En la temporada de riesgo, revisar la malla una vez por semana y anotar lo que se repara.
+- La malla de polietileno con tratamiento UV dura en general entre 5 y 8 años; después pierde resistencia por el sol.
+
+Fuente: portal_fruticola
+
+## Antes del granizo: revisar postes, anclajes y riendas
+
+- Anclajes: deben estar enterrados al menos 1,50 m. Las riendas forman un ángulo de 45 grados con el poste cabecero, a 3 m de su base. Las anclas laterales deben ser dobles. Revisar que ninguna se haya aflojado o levantado.
+- Cada instalación tiene un responsable técnico de la estructura: ante dudas o daños, consultarlo.
+- Donde puede acumularse nieve, conviene que la malla se pueda plegar al alambre de cumbrera en invierno.
+
+Fuente: mza_malla
+
+- Postes de madera: inspeccionarlos una vez por año. Postes de acero galvanizado: revisar que no tengan óxido.
+- Revisar la tensión de anclajes y cables.
+
+Fuente: portal_fruticola
 
 ## Antes del granizo: efectos de la malla y alternativas sin malla
 
