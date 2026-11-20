@@ -179,7 +179,9 @@ def get_weather_forecast(
               "url": "https://open-meteo.com/en/docs"}
     return respond(
         runtime, texto_para_modelo(clave, loc, filas, indicadores),
-        artifact={"localidad": clave, "nombre": loc["nombre"], "dias": filas,
-                  "indicadores": indicadores, "emergencias": loc["emergencias"]},
+        artifact={"localidad": clave, "nombre": loc["nombre"], "departamento": loc["departamento"],
+                  "oasis": OASIS.get(loc["oasis"], loc["oasis"]), "piedemonte": loc["piedemonte"],
+                  "rio": loc["rio"], "latitud": loc["latitud"], "longitud": loc["longitud"],
+                  "dias": filas, "indicadores": indicadores, "emergencias": loc["emergencias"]},
         sources=[fuente],
     )

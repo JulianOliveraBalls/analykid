@@ -102,4 +102,6 @@ def get_river_discharge(
     )
     fuente = {"turn": runtime.context.turn, "title": f"Open-Meteo Flood API (GloFAS): {punto['nombre']}",
               "url": "https://open-meteo.com/en/docs/flood-api"}
-    return respond(runtime, texto, artifact={"rio": rio, **r}, sources=[fuente])
+    artifact = {"rio": rio, "nombre": punto["nombre"], "estacion": punto["estacion_referencia"],
+                "latitud": punto["consulta"]["latitud"], "longitud": punto["consulta"]["longitud"], **r}
+    return respond(runtime, texto, artifact=artifact, sources=[fuente])

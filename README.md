@@ -39,6 +39,8 @@ python -m rag.evaluar              # opcional: acierto@4 sobre 12 preguntas
 streamlit run app.py
 ```
 
+La consulta se arma con el formulario de la barra lateral (localidad, perfil, superficie y días), con los ejemplos de la pantalla inicial o escribiendo en el chat. Cada respuesta muestra arriba el semáforo por amenaza, el mapa y pestañas con pronóstico, caudal, alertas, fuentes y el PDF; abajo, el recorrido del agente (razonamiento y cada tool) y la respuesta final.
+
 Demo en dos turnos:
 
 1. «Armame el plan de contingencia para una finca de vid de 10 hectáreas en Tupungato para los próximos 7 días».
@@ -55,7 +57,9 @@ No usan red ni el modelo: datos, `pedir()` ante 429 y timeout, indicadores de ca
 ## Estructura
 
 ```
-├── app.py            # UI de Streamlit: eventos del agente y detalle de cada tool
+├── app.py            # UI de Streamlit: formulario, panel (semáforo, mapa, pestañas, PDF) y recorrido del agente
+├── semaforo.py       # semáforo calculado en código para las tarjetas de la UI
+├── .streamlit/       # tema de la interfaz
 ├── agente.py         # system prompt (flujo y semáforo), create_agent, memoria y streaming
 ├── model.py          # Gemini u OpenRouter, con reintentos ante 429; embeddings
 ├── tools/            # common.py (estado, respond, pedir) y una tool por archivo:

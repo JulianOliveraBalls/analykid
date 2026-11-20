@@ -147,7 +147,8 @@ def list_threads(limit: int = 5) -> list[tuple[str, str]]:
     for thread_id in reversed(_thread_ids()):
         mensajes = saved_state(_config(thread_id)).get("messages", [])
         if mensajes:
-            conversaciones.append((thread_id, mensajes[0].text[:40]))
+            titulo = mensajes[0].text.removeprefix("Armame el plan de contingencia para ")
+            conversaciones.append((thread_id, titulo[:1].upper() + titulo[1:45]))
         if len(conversaciones) == limit:
             break
     return conversaciones
