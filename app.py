@@ -28,6 +28,9 @@ except RuntimeError as e:  # por ejemplo, faltan API keys en el .env
 
 DIR = Path(__file__).parent
 LOCALIDADES = json.loads((DIR / "datos" / "localidades.json").read_text(encoding="utf-8"))["localidades"]
+RIOS = json.loads((DIR / "datos" / "rios.json").read_text(encoding="utf-8"))["rios"]
+OASIS = {"norte": "Norte", "este": "Este", "valle_de_uco": "Valle de Uco", "sur": "Sur",
+         "alta_montana": "Alta montaña"}
 PERFILES = {"vid": "Vid", "frutal": "Frutal", "hortaliza": "Hortaliza", "urbano": "Urbano"}
 EJEMPLOS = [
     ("🍇 Vid en Tupungato", "Armame el plan de contingencia para una finca de vid de 10 hectáreas "
@@ -250,9 +253,29 @@ def _tab_pdf(d: dict, clave: str) -> None:
         st.code(d.get("latex", ""), language="latex")
 
 
+def _completar_pronostico(d: dict | None) -> dict | None:
+    """Conversaciones guardadas con una versión anterior de la tool no traen estos campos:
+    se completan desde el catálogo."""
+    if not d or d.get("localidad") not in LOCALIDADES:
+        return d
+    loc = LOCALIDADES[d["localidad"]]
+    return {"nombre": loc["nombre"], "departamento": loc["departamento"],
+            "oasis": OASIS.get(loc["oasis"], loc["oasis"]), "piedemonte": loc["piedemonte"],
+            "rio": loc["rio"], "latitud": loc["latitud"], "longitud": loc["longitud"],
+            "emergencias": loc["emergencias"], **d}
+
+
+def _completar_caudal(d: dict | None) -> dict | None:
+    if not d or d.get("rio") not in RIOS:
+        return d
+    r = RIOS[d["rio"]]
+    return {"nombre": r["nombre"], "estacion": r["estacion_referencia"],
+            "latitud": r["consulta"]["latitud"], "longitud": r["consulta"]["longitud"], **d}
+
+
 def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
-    pron = turno.datos.get("get_weather_forecast")
-    caudal = turno.datos.get("get_river_discharge")
+    pron = _completar_pronostico(turno.datos.get("get_weather_forecast"))
+    caudal = _completar_caudal(turno.datos.get("get_river_discharge"))
     enso = turno.datos.get("get_enso_status")
     pdf = turno.datos.get("create_pdf")
     if not (pron or caudal or pdf):
