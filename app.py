@@ -29,7 +29,7 @@ def init_session(config) -> None:
 def titulo_llamada(e: dict) -> str:
     nombre, args = e["nombre"], e["args"]
     if nombre == "search_knowledge_base":
-        return f"📚 Base de conocimiento: «{args.get('query', '')}»"
+        return f"📚 Base de conocimiento: «{args.get('consulta', '')}»"
     if nombre == "load_skill":
         return f"📖 Skill «{args.get('nombre', '')}»"
     if nombre == "create_pdf":
@@ -48,7 +48,7 @@ def detalle_resultado(llamada: dict, r: dict) -> str | None:
     nombre, datos = llamada["nombre"], r["datos"]
     if nombre == "search_knowledge_base":
         for f in datos or []:
-            st.markdown(f"- 📄 **{f['archivo']}**: _{f['fragmento']}…_")
+            st.markdown(f"- 📄 **{f['documento']} — {f['seccion']}** ({f['origen']}): _{f['fragmento']}…_")
     elif nombre == "create_pdf":
         pdf = Path(datos["pdf"]) if datos else None
         if pdf and pdf.exists():
