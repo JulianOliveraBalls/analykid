@@ -93,6 +93,11 @@ def cargar_json(nombre: str) -> dict:
     return json.loads((DATOS_DIR / nombre).read_text(encoding="utf-8"))
 
 
+def es_recordatorio(mensaje) -> bool:
+    """Mensaje interno que el agente agrega para que el modelo continúe (ver agente.py)."""
+    return mensaje.type == "human" and bool(mensaje.additional_kwargs.get("recordatorio"))
+
+
 def resultados_del_turno(mensajes: list) -> dict[str, Any]:
     """Último artifact válido de cada tool desde el último mensaje del usuario.
 
@@ -100,7 +105,8 @@ def resultados_del_turno(mensajes: list) -> dict[str, Any]:
     create_pdf): leen el estado en lugar de pedirle al modelo que copie los datos.
     Un resultado que empieza con ERROR no cuenta.
     """
-    inicio = max((i for i, m in enumerate(mensajes) if m.type == "human"), default=-1)
+    inicio = max((i for i, m in enumerate(mensajes) if m.type == "human" and not es_recordatorio(m)),
+                 default=-1)
     nombres, resultados = {}, {}
     for m in mensajes[inicio + 1:]:
         if m.type == "ai":

@@ -7,7 +7,7 @@ PDF y la UI muestran siempre lo mismo. Además devuelve la etapa fenológica, lo
 días críticos, los disparadores de escalamiento y qué consultar en el RAG.
 """
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Literal
 
 from langchain.tools import ToolRuntime, tool
@@ -179,6 +179,58 @@ def dias_criticos(pron: dict | None) -> list[dict]:
     return criticos
 
 
+DESPUES_DIAS = {"Sanitaria": (5, 10)}   # las manchas de peronóspora aparecen 5 a 10 días después
+DESPUES_POR_DEFECTO = (1, 3)
+
+
+def _dias_del_evento(nombre: str, pron: dict | None, caudal: dict | None) -> list[str]:
+    """Fechas (ISO) en que el indicador diario de la amenaza alcanza el umbral amarillo."""
+    def lluvia(d): return (d["lluvia_mm"] or 0) >= ALUVIONAL[0][0]
+    def cape(d): return (d["cape_jkg"] or 0) >= UMBRALES["Granizo / tormenta"][0]
+    def hongos(d): return lluvia(d) and (d["tmin_c"] or -99) >= 10
+
+    if nombre == "Crecida":
+        return [d["fecha"] for d in (caudal or {}).get("serie", [])
+                if d.get("media_1991_2020_m3s") and d["caudal_m3s"] / d["media_1991_2020_m3s"] >= UMBRALES["Crecida"][0]]
+    criterio = {"Pluvial": lluvia, "Granizo / tormenta": cape, "Sanitaria": hongos,
+                # el aluvional se evalúa con los máximos del período: cuenta cualquier día con lluvia o CAPE
+                "Aluvional": lambda d: lluvia(d) or cape(d)}[nombre]
+    return [d["fecha"] for d in (pron or {}).get("dias", []) if criterio(d)]
+
+
+def _lista_fechas(fechas: list[date]) -> str:
+    textos = [f.strftime("%d/%m") for f in fechas]
+    return textos[0] if len(textos) == 1 else ", ".join(textos[:-1]) + " y " + textos[-1]
+
+
+def _rango(desde: date, hasta: date) -> str:
+    return desde.strftime("%d/%m") if desde == hasta else f"{desde.strftime('%d/%m')} al {hasta.strftime('%d/%m')}"
+
+
+def ventanas(amenazas: list[dict], pron: dict | None, caudal: dict | None, hoy: date) -> dict[str, dict]:
+    """Para cada amenaza activa, las fechas de «antes», «durante» y «después»."""
+    resultado = {}
+    for a in amenazas:
+        if a["nivel"] not in NIVELES[1:]:
+            continue
+        eventos = sorted(date.fromisoformat(f) for f in _dias_del_evento(a["amenaza"], pron, caudal))
+        eventos = [e for e in eventos if e >= hoy]
+        if not eventos:   # activa por una alerta oficial, sin un día puntual en los datos
+            resultado[a["amenaza"]] = {"antes": f"hoy, {hoy.strftime('%d/%m')}",
+                                       "durante": "mientras rija la alerta oficial",
+                                       "despues": "cuando se levante la alerta"}
+            continue
+        primero, ultimo = eventos[0], eventos[-1]
+        d1, d2 = DESPUES_DIAS.get(a["amenaza"], DESPUES_POR_DEFECTO)
+        resultado[a["amenaza"]] = {
+            "antes": (f"hoy, {hoy.strftime('%d/%m')}" if primero <= hoy
+                      else _rango(hoy, primero - timedelta(days=1))),
+            "durante": _lista_fechas(eventos),
+            "despues": _rango(ultimo + timedelta(days=d1), ultimo + timedelta(days=d2)),
+        }
+    return resultado
+
+
 def escalamiento(amenazas: list[dict]) -> list[str]:
     """Para cada amenaza activa, qué haría subir su nivel (siguiente umbral o alerta oficial)."""
     siguiente = {
@@ -227,6 +279,8 @@ def evaluar_turno(resultados: dict, perfil: str, hoy: date) -> dict:
     amenazas = aplicar_alertas(evaluar(pron, caudal, perfil), resultados.get("web_search"))
     etapa = etapa_fenologica(pron.get("oasis_clave") if pron else None, perfil, hoy)
     criticos = dias_criticos(pron)
+    # «Hoy» es el primer día del pronóstico: así las ventanas coinciden con la tabla del informe.
+    inicio = date.fromisoformat(pron["dias"][0]["fecha"]) if pron and pron.get("dias") else hoy
     lluvia_fuerte = pron is not None and (pron["indicadores"]["lluvia_max_mm"] or 0) >= UMBRALES["Pluvial"][0]
     crecida = next(a for a in amenazas if a["amenaza"] == "Crecida")
     return {
@@ -236,6 +290,7 @@ def evaluar_turno(resultados: dict, perfil: str, hoy: date) -> dict:
         "nivel_maximo": nivel_maximo(amenazas),
         "etapa": etapa,
         "dias_criticos": criticos,
+        "ventanas": ventanas(amenazas, pron, caudal, inicio),
         "escalamiento": escalamiento(amenazas),
         "consultas": consultas_sugeridas(amenazas, etapa, perfil),
         "destacar_lluvia_y_canales": crecida["nivel"] in NIVELES[1:] and lluvia_fuerte,
@@ -253,6 +308,10 @@ def redactar(r: dict) -> str:
     if r["dias_criticos"]:
         lineas.append("Días críticos: " + "; ".join(
             f"{_fecha(d['fecha'])} {', '.join(d['motivos'])}" for d in r["dias_criticos"]))
+    if r["ventanas"]:
+        lineas.append("Ventanas de las medidas (usalas como títulos de Antes/Durante/Después en cada amenaza):")
+        lineas += [f"- {nombre}: Antes ({v['antes']}) · Durante ({v['durante']}) · Después ({v['despues']})"
+                   for nombre, v in r["ventanas"].items()]
     if r["destacar_lluvia_y_canales"]:
         lineas.append("Destacar: crecida con lluvia intensa prevista (lluvia + canales con agua).")
     if r["escalamiento"]:

@@ -70,6 +70,7 @@ PROHIBIDO = (
 # Comienzo del título de cada sección obligatoria (los títulos completos están en la skill informe_riesgo).
 SECCIONES = ["Resumen", "Contexto", "Pronóstico", "Caudal", "Alertas", "Semáforo", "Medidas",
              "Escalamiento", "Checklist", "Contactos", "Fuentes", "Limitaciones"]
+CITAS_POR_AMENAZA = 3
 CITA = re.compile(r"\[[^\]]+ — [^\]]+\]")
 
 
@@ -83,6 +84,14 @@ def _secciones(cuerpo: str) -> dict[str, str]:
     """Título (plano) -> contenido de cada \\section."""
     partes = re.split(r"\\section\*?\{([^}]*)\}", cuerpo)
     return {_plano(partes[i]): partes[i + 1] for i in range(1, len(partes) - 1, 2)}
+
+
+def _subseccion(texto: str, amenaza: str) -> str:
+    """Contenido de la \\subsection cuyo título empieza con el nombre de la amenaza."""
+    partes = re.split(r"\\subsection\*?\{([^}]*)\}", texto)
+    buscado = _plano(amenaza.split(" /")[0])
+    return next((partes[i + 1] for i in range(1, len(partes) - 1, 2)
+                 if _plano(partes[i]).strip().startswith(buscado)), "")
 
 
 def validar(cuerpo: str, riesgo: dict) -> list[str]:
@@ -106,9 +115,16 @@ def validar(cuerpo: str, riesgo: dict) -> list[str]:
     for nombre in activas:
         if _plano(nombre.split(" /")[0]) not in _plano(medidas):
             problemas.append(f"«Medidas» no tiene un apartado para {nombre}")
-    if activas and len(CITA.findall(medidas)) < 2 * len(activas):
-        problemas.append(f"«Medidas» tiene {len(CITA.findall(medidas))} citas [Documento — Sección]; "
-                         f"se esperan al menos {2 * len(activas)} (2 por amenaza activa)")
+    for nombre, v in riesgo.get("ventanas", {}).items():
+        apartado = _subseccion(medidas, nombre)
+        for etiqueta, clave in (("Antes", "antes"), ("Durante", "durante"), ("Después", "despues")):
+            if f"{etiqueta} ({v[clave]})" not in apartado:
+                problemas.append(f"Medidas de {nombre}: falta «{etiqueta} ({v[clave]})»")
+    for nombre in activas:
+        citas = len(CITA.findall(_subseccion(medidas, nombre)))
+        if citas < CITAS_POR_AMENAZA:
+            problemas.append(f"Medidas de {nombre}: {citas} cita(s) [Documento — Sección]; "
+                             f"se esperan al menos {CITAS_POR_AMENAZA}, una por medida")
     return problemas
 
 

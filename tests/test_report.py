@@ -37,5 +37,13 @@ def test_ejemplo_de_la_skill_pasa_el_control_de_contenido():
     riesgo = {"etapa": {"etapa": "floración"}, "amenazas": [
         {"amenaza": "Pluvial", "nivel": "amarillo"}, {"amenaza": "Granizo / tormenta", "nivel": "verde"},
         {"amenaza": "Aluvional", "nivel": "verde"}, {"amenaza": "Crecida", "nivel": "verde"},
-        {"amenaza": "Sanitaria", "nivel": "amarillo"}]}
+        {"amenaza": "Sanitaria", "nivel": "amarillo"}],
+        "ventanas": {"Sanitaria": {"antes": "20/11 al 23/11", "durante": "24/11", "despues": "29/11 al 04/12"},
+                     "Pluvial": {"antes": "20/11 al 23/11", "durante": "24/11", "despues": "25/11 al 27/11"}}}
     assert report.validar(_ejemplo(), riesgo) == []
+
+
+def test_las_skills_no_superan_el_limite_de_load_skill():
+    from tools.knowledge import MAX_SKILL, SKILLS_DIR
+    for skill in SKILLS_DIR.glob("*.md"):
+        assert len(skill.read_text(encoding="utf-8")) <= MAX_SKILL, skill.name

@@ -20,6 +20,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from model import get_fallback, get_model
 from tools import TOOLS, Context, AnalyKidState, listar_skills
+from middleware import continuar_si_solo_anuncia
+from tools.common import es_recordatorio
 
 # La fecha se fija al iniciar el programa; no se actualiza si la sesión cruza la medianoche.
 HOY = date.today()
@@ -73,14 +75,15 @@ Skills disponibles: {listar_skills()}
 DIR = Path(__file__).parent
 CONV_FILE = DIR / "conversaciones.txt"   # un thread_id por línea; el último es el activo
 
-# Único middleware: si el modelo principal falla (503 por saturación o 429 por
-# cuota, después de los reintentos del cliente), repite la llamada con el de
-# respaldo. Los errores de las tools no pasan por acá: las tools devuelven ERROR.
+# Middlewares (ver middleware.py): el de respaldo repite la llamada con otro modelo si el
+# principal falla (503 o 429 tras los reintentos del cliente); el otro hace continuar al modelo
+# si termina un mensaje anunciando consultas sin hacerlas. Los errores de las tools no pasan
+# por acá: las tools devuelven ERROR.
 _respaldo = get_fallback()
 
 agent = create_agent(
     model=get_model(),
-    middleware=[ModelFallbackMiddleware(_respaldo)] if _respaldo else [],
+    middleware=([ModelFallbackMiddleware(_respaldo)] if _respaldo else []) + [continuar_si_solo_anuncia],
     tools=TOOLS,
     system_prompt=SYSTEM_PROMPT,
     state_schema=AnalyKidState,     # estado extendido: messages + sources
@@ -189,6 +192,8 @@ def saved_turns(config: RunnableConfig) -> list[tuple[str, list[dict]]]:
     estado = saved_state(config)
     turnos: list[tuple[str, list[dict]]] = []
     for m in estado.get("messages", []):
+        if es_recordatorio(m):
+            continue
         if m.type == "human":
             turnos.append((m.text, []))
         else:

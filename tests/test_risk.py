@@ -6,7 +6,7 @@ from langchain.messages import AIMessage, HumanMessage, ToolMessage
 from tools.common import resultados_del_turno
 from tools.report import validar
 from tools.risk import (aplicar_alertas, consultas_sugeridas, dias_criticos, escalamiento,
-                        etapa_fenologica, evaluar, evaluar_turno, nivel_maximo)
+                        etapa_fenologica, evaluar, evaluar_turno, nivel_maximo, ventanas)
 
 
 def _pron(lluvia=0, cape=0, prob=0, hongos=0, piedemonte=True, oasis="valle_de_uco"):
@@ -168,7 +168,7 @@ def _cuerpo(filas: str, medidas: str) -> str:
 
 FILAS_OK = (r"Pluvial & \nivel{amarillo} & m \\ Granizo/tormenta & \nivel{verde} & m \\ "
             r"Aluvional & \nivel{verde} & m \\ Crecida & \nivel{sindatos} & m \\ Sanitaria & \nivel{verde} & m \\")
-MEDIDAS_OK = r"\subsection{Pluvial} \item a [Doc — Sec] \item b [Doc — Otra]"
+MEDIDAS_OK = r"\subsection{Pluvial} \item a [Doc — Sec] \item b [Doc — Otra] \item c [Doc — Tercera]"
 
 
 def test_informe_completo_pasa():
@@ -185,7 +185,7 @@ def test_detecta_secciones_faltantes_y_medidas_sin_citas():
     cuerpo = _cuerpo(FILAS_OK, r"\subsection{Pluvial} \item sin cita").replace(r"\section{Escalamiento}", "")
     problemas = validar(cuerpo, RIESGO)
     assert "falta la sección «Escalamiento»" in problemas
-    assert any("citas" in p for p in problemas)
+    assert any("cita(s)" in p for p in problemas)
 
 
 def test_alertas_y_contraste_de_fuentes_no_cuenta_como_fuentes():
@@ -195,3 +195,44 @@ def test_alertas_y_contraste_de_fuentes_no_cuenta_como_fuentes():
 
 def test_etapa_obligatoria_para_vid():
     assert "falta la sección «Etapa»" in validar(_cuerpo(FILAS_OK, MEDIDAS_OK), {**RIESGO, "etapa": {"etapa": "x"}})
+
+
+# --- ventanas de antes / durante / después ---------------------------------------------
+
+def _pron_semana():
+    dias = [{"fecha": f"2026-11-{d}", "lluvia_mm": 0, "cape_jkg": 0, "prob_pct": 0, "tmin_c": 11.0}
+            for d in range(20, 27)]
+    dias[4].update(lluvia_mm=12.0)            # 24/11
+    dias[6].update(cape_jkg=1210)             # 26/11
+    return {**_pron(lluvia=12, cape=1210, hongos=1), "dias": dias}
+
+
+def test_ventanas_por_amenaza_con_fechas():
+    pron = _pron_semana()
+    v = ventanas(evaluar(pron, None, "vid"), pron, None, date(2026, 11, 20))
+    assert v["Pluvial"] == {"antes": "20/11 al 23/11", "durante": "24/11", "despues": "25/11 al 27/11"}
+    assert v["Granizo / tormenta"] == {"antes": "20/11 al 25/11", "durante": "26/11", "despues": "27/11 al 29/11"}
+    assert v["Sanitaria"]["despues"] == "29/11 al 04/12"        # manchas: 5 a 10 días después
+    assert v["Aluvional"]["durante"] == "24/11 y 26/11"
+
+
+def test_ventana_con_evento_hoy_y_por_alerta():
+    pron = _pron_semana()
+    pron["dias"][0].update(lluvia_mm=15.0)
+    v = ventanas(evaluar(pron, None, "vid"), pron, None, date(2026, 11, 20))
+    assert v["Pluvial"]["antes"] == "hoy, 20/11" and v["Pluvial"]["durante"] == "20/11 y 24/11"
+    amenazas = aplicar_alertas(evaluar(_pron_semana(), {"cociente": 1.0, "serie": []}),
+                               {"elegidos": [{"titulo": "Alerta amarilla por crecida", "resumen": "",
+                                              "dominio": "ina.gob.ar", "es_alerta": True}]})
+    v = ventanas(amenazas, _pron_semana(), {"serie": []}, date(2026, 11, 20))
+    assert v["Crecida"]["durante"] == "mientras rija la alerta oficial"
+
+
+def test_validar_exige_las_fechas_de_cada_ventana():
+    riesgo = {**RIESGO, "ventanas": {"Pluvial": {"antes": "20/11 al 23/11", "durante": "24/11",
+                                                 "despues": "25/11 al 27/11"}}}
+    problemas = validar(_cuerpo(FILAS_OK, MEDIDAS_OK), riesgo)
+    assert "Medidas de Pluvial: falta «Antes (20/11 al 23/11)»" in problemas
+    medidas = (r"\subsection{Pluvial} \item \textbf{Antes (20/11 al 23/11):} a [Doc — Sec] "
+               r"\item \textbf{Durante (24/11):} b [Doc — Otra] \item \textbf{Después (25/11 al 27/11):} c [Doc — Tercera]")
+    assert validar(_cuerpo(FILAS_OK, medidas), riesgo) == []

@@ -306,6 +306,11 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
                 + "".join(f'<span class="ak-chip">{c}</span>' for c in chips) + "</div>",
                 unsafe_allow_html=True)
     _tarjetas(amenazas)
+    if riesgo and riesgo.get("ventanas"):
+        st.markdown("**Cronograma de acciones**")
+        st.dataframe(pd.DataFrame([{"Amenaza": n, "Antes": v["antes"], "Durante": v["durante"],
+                                    "Después": v["despues"]} for n, v in riesgo["ventanas"].items()]),
+                     hide_index=True, width="stretch")
     if riesgo and riesgo.get("escalamiento"):
         with st.expander("⬆️ Qué haría subir el nivel"):
             for regla in riesgo["escalamiento"]:
