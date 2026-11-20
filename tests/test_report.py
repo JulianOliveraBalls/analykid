@@ -31,3 +31,11 @@ def test_ejemplo_de_la_skill_compila(tmp_path):
     proc = report.compilar(report._tectonic(), tex)
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert tex.with_suffix(".pdf").exists()
+
+
+def test_ejemplo_de_la_skill_pasa_el_control_de_contenido():
+    riesgo = {"etapa": {"etapa": "floración"}, "amenazas": [
+        {"amenaza": "Pluvial", "nivel": "amarillo"}, {"amenaza": "Granizo / tormenta", "nivel": "verde"},
+        {"amenaza": "Aluvional", "nivel": "verde"}, {"amenaza": "Crecida", "nivel": "verde"},
+        {"amenaza": "Sanitaria", "nivel": "amarillo"}]}
+    assert report.validar(_ejemplo(), riesgo) == []

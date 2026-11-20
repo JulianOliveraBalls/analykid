@@ -1,4 +1,5 @@
 """Conocimiento propio: búsqueda en el RAG y carga de skills."""
+import threading
 from functools import cache
 
 from langchain.tools import ToolRuntime, tool
@@ -11,14 +12,26 @@ K = 4                  # fragmentos por consulta (4 × ≤ 900 caracteres)
 MAX_SKILL = 6000       # caracteres máximos de una skill
 
 
+_lock = threading.Lock()
+
+
 @cache
-def _store():
-    """Base vectorial, abierta la primera vez que se usa (no al importar)."""
+def _abrir_store():
     from rag.store import DB_DIR, get_store
 
     if not DB_DIR.exists():
         raise FileNotFoundError("falta la base vectorial")
     return get_store()
+
+
+def _store():
+    """Base vectorial, abierta la primera vez que se usa (no al importar).
+
+    El modelo pide varias consultas en paralelo (una por hilo): sin el lock, cada hilo
+    creaba su propio cliente de Chroma a la vez y fallaban con «Could not connect to tenant».
+    """
+    with _lock:
+        return _abrir_store()
 
 
 def _descripcion(nombre: str) -> str:

@@ -91,3 +91,21 @@ def pedir(url: str, params: dict | None = None, *, cuerpo: dict | None = None,
 def cargar_json(nombre: str) -> dict:
     """Lee un archivo de datos/ (allow-lists y catálogos), una sola vez por proceso."""
     return json.loads((DATOS_DIR / nombre).read_text(encoding="utf-8"))
+
+
+def resultados_del_turno(mensajes: list) -> dict[str, Any]:
+    """Último artifact válido de cada tool desde el último mensaje del usuario.
+
+    Lo usan las tools que trabajan sobre lo que otras ya devolvieron (evaluate_risk,
+    create_pdf): leen el estado en lugar de pedirle al modelo que copie los datos.
+    Un resultado que empieza con ERROR no cuenta.
+    """
+    inicio = max((i for i, m in enumerate(mensajes) if m.type == "human"), default=-1)
+    nombres, resultados = {}, {}
+    for m in mensajes[inicio + 1:]:
+        if m.type == "ai":
+            nombres.update({c["id"]: c["name"] for c in m.tool_calls})
+        elif m.type == "tool" and m.tool_call_id in nombres:
+            if m.artifact is not None and not str(m.content).startswith("ERROR"):
+                resultados[nombres[m.tool_call_id]] = m.artifact
+    return resultados

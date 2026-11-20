@@ -10,7 +10,8 @@ description: Cómo escribir el cuerpo LaTeX del informe para create_pdf (macros 
 - Escribí con caracteres normales (á, é, ñ, °, ³, «», —). No uses comandos para los acentos.
 
 ## Macros de la plantilla
-- `\nivel{verde}`, `\nivel{amarillo}`, `\nivel{naranja}`, `\nivel{rojo}` y `\nivel{sindatos}`: recuadro de color con el nivel. Usá exactamente esas cinco claves, en minúscula y sin espacios.
+- `\nivel{verde}`, `\nivel{amarillo}`, `\nivel{naranja}`, `\nivel{rojo}`, `\nivel{sindatos}` y `\nivel{noaplica}`: recuadro de color con el nivel. Usá exactamente esas claves, en minúscula y sin espacios («sin datos» → `sindatos`, «no aplica» → `noaplica`).
+- `\item[\casilla]`: ítem de checklist con una casilla para tildar a mano.
 
 ## Estructura
 - Secciones: `\section{...}` y `\subsection{...}`.

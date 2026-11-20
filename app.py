@@ -14,7 +14,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from semaforo import evaluar, nivel_maximo
+from tools.risk import evaluar, nivel_maximo
 
 st.set_page_config(page_title="AnalyKid", page_icon="🌧️", layout="wide")
 
@@ -47,6 +47,7 @@ TITULOS = {
     "get_weather_forecast": ("🌦️", "Pronóstico"),
     "get_river_discharge": ("🏞️", "Caudal del río"),
     "web_search": ("🚨", "Alertas oficiales"),
+    "evaluate_risk": ("🚦", "Evaluación de riesgo"),
     "search_knowledge_base": ("📚", "Base de conocimiento"),
     "load_skill": ("📖", "Skill"),
     "create_pdf": ("📄", "Informe PDF"),
@@ -94,7 +95,8 @@ def _titulo(e: dict) -> str:
     args = e["args"]
     detalle = {
         "get_weather_forecast": f"{args.get('localidad', '')}, {args.get('dias', 7)} días",
-        "get_river_discharge": args.get("rio", ""),
+        "get_river_discharge": args.get("localidad", args.get("rio", "")),
+        "evaluate_risk": f"perfil {args.get('perfil', '')}",
         "web_search": args.get("zona", ""),
         "search_knowledge_base": f"«{args.get('consulta', '')}»",
         "load_skill": args.get("nombre", ""),
@@ -180,7 +182,11 @@ def _mapa(pron: dict | None, caudal: dict | None) -> None:
         st.caption("Punto grande: localidad · punto chico: punto de consulta del río (GloFAS)")
 
 
-def _tab_pronostico(d: dict) -> None:
+def _tab_pronostico(d: dict, riesgo: dict | None) -> None:
+    if riesgo and riesgo.get("dias_criticos"):
+        st.markdown("**Días críticos**")
+        for c in riesgo["dias_criticos"]:
+            st.markdown(f"- **{_dm(c['fecha'])}**: {', '.join(c['motivos'])}")
     tabla = pd.DataFrame(d["dias"]).rename(columns={
         "fecha": "Fecha", "lluvia_mm": "Lluvia (mm)", "prob_pct": "Prob. (%)", "cape_jkg": "CAPE (J/kg)",
         "rafaga_kmh": "Ráfaga (km/h)", "tmax_c": "Máx (°C)", "tmin_c": "Mín (°C)"})
@@ -281,20 +287,29 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
     if not (pron or caudal or pdf):
         return
 
-    amenazas = evaluar(pron, caudal, perfil)
-    maximo = nivel_maximo(amenazas)
+    riesgo = turno.datos.get("evaluate_risk")
+    if riesgo:   # el mismo cálculo que recibe el modelo y verifica create_pdf
+        amenazas, maximo = riesgo["amenazas"], riesgo["nivel_maximo"]
+    else:        # conversaciones guardadas antes de evaluate_risk
+        amenazas = evaluar(pron, caudal, perfil)
+        maximo = nivel_maximo(amenazas)
     lugar = pron["nombre"] if pron else (caudal["nombre"] if caudal else "Resultado")
     chips = []
     if pron:
         chips += [pron["oasis"], f"Río {pron['rio'].capitalize()}",
                   "Piedemonte" if pron["piedemonte"] else "Fuera del piedemonte"]
+    if riesgo and riesgo.get("etapa"):
+        e = riesgo["etapa"]
+        chips.append(f"🍇 {e['etapa'].capitalize()}" + (" · período crítico" if e["periodo_critico"] else ""))
     chips.append(f"{ICONO_NIVEL.get(maximo, '')} Nivel máximo: {maximo}")
     st.markdown(f'<div class="ak-titulo"><h3>📍 {lugar}</h3>'
                 + "".join(f'<span class="ak-chip">{c}</span>' for c in chips) + "</div>",
                 unsafe_allow_html=True)
     _tarjetas(amenazas)
-    st.caption("Semáforo calculado por AnalyKid con los indicadores de las tools; "
-               "el informe PDF agrega alertas oficiales, contexto y medidas.")
+    if riesgo and riesgo.get("escalamiento"):
+        with st.expander("⬆️ Qué haría subir el nivel"):
+            for regla in riesgo["escalamiento"]:
+                st.markdown(f"- {regla}")
 
     izq, der = st.columns([3, 2])
     with izq:
@@ -319,7 +334,7 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
     tabs = st.tabs(nombres)
     with tabs[0]:
         if pron:
-            _tab_pronostico(pron)
+            _tab_pronostico(pron, riesgo)
         else:
             st.info("Sin pronóstico en este turno.")
     with tabs[1]:

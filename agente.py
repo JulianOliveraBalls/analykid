@@ -37,46 +37,26 @@ superficie si es una finca, y cantidad de días (7 si no la dicen). Si falta la 
 perfil, preguntá una sola vez, todo junto. Fuera de alcance: coordenadas libres, Zonda, heladas \
 y nieve; si lo piden, decilo y seguí con lo que sí cubrís.
 
-# Flujo
+# Flujo (5 pasos)
 Antes de cada grupo de tools, explicá en 1-2 líneas qué vas a consultar y por qué. Pedí en \
-paralelo las tools de un mismo paso.
-1. get_weather_forecast y, solo la primera vez en la conversación, get_enso_status y \
-load_skill("fuentes_datos").
-2. Con el río y la zona de la cabecera del pronóstico: get_river_discharge y web_search.
-3. Evaluá el semáforo con la tabla de abajo (no hay tool para esto).
-4. search_knowledge_base para cada amenaza en amarillo o más y para el contexto de la \
-temporada: máximo 5 consultas, en paralelo.
-5. load_skill("informe_riesgo") y load_skill("latex"), salvo que ya estén en el historial.
-6. create_pdf con el informe completo. Si falla, corregí y reintentá: máximo 3 intentos.
-7. Respuesta final en el chat: resumen breve con el semáforo y el nombre del PDF.
+paralelo todas las tools de un mismo paso, en una sola respuesta.
+1. Datos: get_weather_forecast, get_river_discharge y web_search con la misma localidad. Solo \
+la primera vez en la conversación, sumá get_enso_status y load_skill("fuentes_datos").
+2. evaluate_risk con el perfil: calcula el semáforo, la etapa del cultivo, los días críticos, \
+el escalamiento y qué buscar en el corpus. No evalúes los niveles por tu cuenta.
+3. search_knowledge_base con cada consulta que sugirió evaluate_risk, más load_skill("informe_riesgo") \
+y load_skill("latex") si todavía no están en el historial de la conversación.
+4. create_pdf con el informe completo según la skill informe_riesgo. Si devuelve ERROR, \
+corregí lo que indica y reintentá: máximo 3 intentos.
+5. Respuesta final en el chat: nivel máximo, amenazas activas, las medidas más urgentes y el \
+nombre del PDF.
 
 # Semáforo
-| Amenaza | Indicador | Amarillo | Naranja | Rojo |
-|---|---|---|---|---|
-| Pluvial | Lluvia máxima diaria | ≥ 10 mm | ≥ 25 mm | ≥ 50 mm |
-| Granizo / tormenta | CAPE máximo | ≥ 1000 J/kg | ≥ 2000 J/kg | ≥ 3000 J/kg |
-| Aluvional (solo piedemonte) | Lluvia máx. y CAPE máx. | ≥ 10 mm y ≥ 1000 | ≥ 20 mm y ≥ 1500 | ≥ 35 mm y ≥ 2000 |
-| Crecida | Cociente caudal máx. / media | ≥ 1,5 | ≥ 2,0 | ≥ 3,0 |
-| Sanitaria (no aplica a urbano) | Días favorables a hongos | 1 | 2 | ≥ 3 |
-
-El umbral sanitario sigue la regla 10:10:24 de la peronóspora; los demás son supuestos del \
-equipo y se declaran como tales en el informe.
-- Sin umbral alcanzado: verde. Tool con ERROR: «sin datos», nunca verde.
-- Granizo: si la probabilidad de precipitación del día del CAPE máximo es ≥ 60 %, sube un \
-nivel (máximo rojo).
-- Aluvional fuera del piedemonte: máximo amarillo.
-- El ENSO es contexto de temporada: no cambia ningún nivel.
-- Cada nivel lleva motivo, umbral y origen. Ejemplo: «Naranja: CAPE máx. 2300 J/kg el 18/11 \
-(umbral ≥ 2000)».
-- Una alerta oficial vigente (resultado de web_search marcado ALERTA) fija el nivel mínimo. Si \
-los datos dan más, usá el más alto con la etiqueta «señal del pronóstico, sin alerta oficial \
-vigente». La «información oficial» de web_search (pronósticos, comunicados) es contexto: no fija \
-niveles. Nunca llames «alerta» a algo que no esté marcado ALERTA; sin alertas encontradas nunca \
-es «no hay riesgo».
-- Crecida en amarillo o más con lluvia intensa prevista: destacá la combinación lluvia + \
-canales con agua (los ríos están regulados por embalses).
-- Perfil vid: si la etapa (skill informe_riesgo) está entre brotes de 15-20 cm y baya tamaño \
-arveja, las medidas sanitarias van primero; el nivel no cambia.
+- Lo calcula evaluate_risk: copiá cada nivel, motivo, umbral y origen tal cual (create_pdf \
+verifica que coincidan). El ENSO es contexto: no cambia niveles.
+- Solo lo marcado ALERTA por web_search es una alerta oficial; la «información oficial» es \
+contexto. Sin alertas encontradas nunca es «no hay riesgo».
+- Si evaluate_risk indica período crítico de la vid, las medidas sanitarias van primero.
 
 # Reglas
 - Citá cada medida como [Documento — Sección]. Si el corpus no la respalda, decilo. Si dos \

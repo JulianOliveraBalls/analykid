@@ -2,7 +2,7 @@
 
 Agente hecho con `create_agent` de LangChain que arma un **plan de contingencia en PDF** ante el riesgo hídrico y climático de fincas y localidades de Mendoza durante El Niño 2026-2027.
 
-Consulta el estado de El Niño (NOAA), el pronóstico (Open-Meteo), el caudal de los ríos (Flood API, GloFAS) y las alertas oficiales (SMN, Gobierno de Mendoza, Irrigación, INA). Evalúa un semáforo por amenaza (pluvial, granizo/tormenta, aluvional, crecida y sanitaria), busca medidas con cita en una base de conocimiento propia y compila el informe con Tectonic. La interfaz de Streamlit muestra en vivo el razonamiento y cada tool que usa. La memoria por conversación permite seguir con «¿y si la finca estuviera en San Rafael?».
+Consulta el estado de El Niño (NOAA), el pronóstico (Open-Meteo), el caudal de los ríos (Flood API, GloFAS) y las alertas oficiales (SMN, Gobierno de Mendoza, Irrigación, INA). Calcula en código un semáforo por amenaza (pluvial, granizo/tormenta, aluvional, crecida y sanitaria) y la etapa del cultivo con `evaluate_risk`, busca medidas con cita en una base de conocimiento propia y compila el informe con Tectonic. La interfaz de Streamlit muestra en vivo el razonamiento y cada tool que usa. La memoria por conversación permite seguir con «¿y si la finca estuviera en San Rafael?».
 
 ## Requisitos
 
@@ -58,14 +58,13 @@ No usan red ni el modelo: datos, `pedir()` ante 429 y timeout, indicadores de ca
 
 ```
 ├── app.py            # UI de Streamlit: formulario, panel (semáforo, mapa, pestañas, PDF) y recorrido del agente
-├── semaforo.py       # semáforo calculado en código para las tarjetas de la UI
 ├── .streamlit/       # tema de la interfaz
 ├── agente.py         # system prompt (flujo y semáforo), create_agent, memoria y streaming
 ├── model.py          # Gemini u OpenRouter, con reintentos ante 429; embeddings
 ├── tools/            # common.py (estado, respond, pedir) y una tool por archivo:
-│                     # enso, weather, river, web_search, knowledge, report
+│                     # enso, weather, river, web_search, risk (evaluate_risk), knowledge, report
 ├── datos/            # catálogos: localidades, variables, ríos, dominios oficiales,
-│                     # climatologia/ (medias 1991-2020) y respaldo/ (RONI)
+│                     # fenologia (calendario de la vid), climatologia/ (medias 1991-2020) y respaldo/ (RONI)
 ├── rag/              # docs/ (6 documentos), ingest.py, store.py, evaluar.py
 ├── skills/           # fuentes_datos, informe_riesgo y latex
 ├── scripts/          # generación de datos: climatología, respaldo ENSO, localidades

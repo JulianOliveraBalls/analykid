@@ -10,7 +10,7 @@ from uuid import uuid4
 from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 
-from tools.common import BASE_DIR, Context, error, respond
+from tools.common import BASE_DIR, Context, error, respond, resultados_del_turno
 
 OUTPUT_DIR = BASE_DIR / "output"
 TIMEOUT_S = 180   # la primera compilación descarga paquetes y puede tardar
@@ -38,7 +38,9 @@ PLANTILLA = r"""\documentclass[11pt]{article}
 \newcommand{\nivelnaranja}{\colorbox{nnaranja}{\textcolor{white}{\textbf{NARANJA}}}}
 \newcommand{\nivelrojo}{\colorbox{nrojo}{\textcolor{white}{\textbf{ROJO}}}}
 \newcommand{\nivelsindatos}{\colorbox{nsindatos}{\textcolor{white}{\textbf{SIN DATOS}}}}
+\newcommand{\nivelnoaplica}{\colorbox{nsindatos}{\textcolor{white}{\textbf{NO APLICA}}}}
 \newcommand{\nivel}[1]{\csname nivel#1\endcsname}
+\newcommand{\casilla}{\framebox[0.9em]{\rule{0pt}{0.55em}}}
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
@@ -63,6 +65,51 @@ PROHIBIDO = (
     r"\verbatiminput", r"\lstinputlisting", r"\begin{document}", r"\end{document}",
     "^^",
 )
+
+
+# Comienzo del título de cada sección obligatoria (los títulos completos están en la skill informe_riesgo).
+SECCIONES = ["Resumen", "Contexto", "Pronóstico", "Caudal", "Alertas", "Semáforo", "Medidas",
+             "Escalamiento", "Checklist", "Contactos", "Fuentes", "Limitaciones"]
+CITA = re.compile(r"\[[^\]]+ — [^\]]+\]")
+
+
+def _plano(texto: str) -> str:
+    """Minúsculas, sin tildes y sin espacios alrededor de «/», para comparar títulos y nombres."""
+    sin_tildes = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"\s*/\s*", "/", sin_tildes)
+
+
+def _secciones(cuerpo: str) -> dict[str, str]:
+    """Título (plano) -> contenido de cada \\section."""
+    partes = re.split(r"\\section\*?\{([^}]*)\}", cuerpo)
+    return {_plano(partes[i]): partes[i + 1] for i in range(1, len(partes) - 1, 2)}
+
+
+def validar(cuerpo: str, riesgo: dict) -> list[str]:
+    """Problemas de contenido del informe frente a la evaluación de evaluate_risk."""
+    secciones = _secciones(cuerpo)
+    requeridas = SECCIONES + (["Etapa"] if riesgo.get("etapa") else [])
+    problemas = [f"falta la sección «{s}»" for s in requeridas
+                 if not any(titulo.strip().startswith(_plano(s)) for titulo in secciones)]
+
+    plano = _plano(cuerpo)
+    for a in riesgo["amenazas"]:
+        esperado = a["nivel"].replace(" ", "")
+        fila = re.search(re.escape(_plano(a["amenaza"])) + r"\s*&\s*\\nivel\{(\w+)\}", plano)
+        if not fila:
+            problemas.append(f"el semáforo no tiene la fila «{a['amenaza']} & \\nivel{{{esperado}}}»")
+        elif fila.group(1) != esperado:
+            problemas.append(f"{a['amenaza']}: el semáforo dice {fila.group(1)} y evaluate_risk dio {esperado}")
+
+    medidas = next((c for t, c in secciones.items() if t.strip().startswith("medidas")), "")
+    activas = [a["amenaza"] for a in riesgo["amenazas"] if a["nivel"] in ("amarillo", "naranja", "rojo")]
+    for nombre in activas:
+        if _plano(nombre.split(" /")[0]) not in _plano(medidas):
+            problemas.append(f"«Medidas» no tiene un apartado para {nombre}")
+    if activas and len(CITA.findall(medidas)) < 2 * len(activas):
+        problemas.append(f"«Medidas» tiene {len(CITA.findall(medidas))} citas [Documento — Sección]; "
+                         f"se esperan al menos {2 * len(activas)} (2 por amenaza activa)")
+    return problemas
 
 
 def _tectonic() -> str | None:
@@ -113,6 +160,17 @@ def create_pdf(titulo: str, cuerpo: str, runtime: ToolRuntime[Context]) -> Comma
         return respond(runtime, error(
             "create_pdf", f"el cuerpo no puede contener «{prohibido}»",
             "Enviá solo contenido (secciones, listas, tablas)."))
+
+    riesgo = resultados_del_turno(runtime.state.get("messages", [])).get("evaluate_risk")
+    if riesgo is None:
+        return respond(runtime, error(
+            "create_pdf", "no hay evaluación de riesgo en este turno",
+            "Llamá evaluate_risk antes de escribir el informe."))
+    problemas = validar(cuerpo, riesgo)
+    if problemas:
+        return respond(runtime, error(
+            "create_pdf", "el informe está incompleto",
+            "Corregí y reintentá:\n- " + "\n- ".join(problemas)))
 
     tectonic = _tectonic()
     if tectonic is None:

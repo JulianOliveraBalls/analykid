@@ -1,18 +1,21 @@
 """get_river_discharge: caudal previsto (GloFAS, Flood API) contra la media 1991-2020.
 
-El punto de cada río sale de datos/rios.json y la media histórica de
+El modelo pasa la localidad (como en get_weather_forecast) y el río sale del
+catálogo: así se puede pedir en paralelo con el pronóstico y el modelo no elige
+el río. El punto de cada río sale de datos/rios.json y la media histórica de
 datos/climatologia/<rio>.json (scripts/calcular_climatologia.py). No se usa
 `river_discharge_mean` de la API: es la media del ensamble, no la histórica.
 """
 import json
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated
 
 from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 from pydantic import Field
 
 from tools.common import DATOS_DIR, Context, cargar_json, error, pedir, respond
+from tools.weather import resolver_localidad
 
 URL = "https://flood-api.open-meteo.com/v1/flood"
 UMBRAL_TENDENCIA = 0.10   # variación relativa entre el primer y el último día
@@ -57,15 +60,22 @@ def calcular(fechas: list[str], caudales: list, medias_por_dia: list) -> dict | 
 
 @tool
 def get_river_discharge(
-    rio: Literal["mendoza", "tunuyan", "diamante", "atuel"],
+    localidad: str,
     runtime: ToolRuntime[Context],
     dias: Annotated[int, Field(ge=1, le=30)] = 7,
 ) -> Command:
-    """Caudal previsto de un río de Mendoza comparado con su media histórica 1991-2020
+    """Caudal previsto del río que abastece a una localidad de Mendoza (Mendoza, Tunuyán,
+    Diamante o Atuel, según el catálogo), comparado con su media histórica 1991-2020
     para las mismas fechas: caudal máximo y fecha, media, cociente máximo/media (el
-    indicador de crecida) y tendencia. Usá el río de la localidad que informa
+    indicador de crecida) y tendencia. `localidad` es la misma que en
     get_weather_forecast. Es caudal simulado (GloFAS): no modela los embalses.
     """
+    clave, parecidas = resolver_localidad(localidad)
+    if clave is None:
+        return respond(runtime, error(
+            "get_river_discharge", f"la localidad «{localidad}» no está en el catálogo",
+            f"Probá con: {', '.join(parecidas) or 'otra localidad de Mendoza'}."))
+    rio = cargar_json("localidades.json")["localidades"][clave]["rio"]
     punto = cargar_json("rios.json")["rios"][rio]
     try:
         clima = json.loads((DATOS_DIR / "climatologia" / f"{rio}.json").read_text(encoding="utf-8"))
@@ -94,7 +104,7 @@ def get_river_discharge(
 
     verificado = f"verificado {punto['verificado']}" if punto.get("verificado") else "punto sin verificar"
     texto = (
-        f"Caudal {punto['nombre']} ({rio}), {len(r['serie'])} días, GloFAS en "
+        f"Caudal {punto['nombre']} (rio={rio}, abastece a {clave}), {len(r['serie'])} días, GloFAS en "
         f"{punto['estacion_referencia']} ({verificado}): máximo {r['caudal_max_m3s']} m³/s el "
         f"{date.fromisoformat(r['fecha_max']).strftime('%d/%m')}; media 1991-2020 del período "
         f"{r['media_1991_2020_m3s']} m³/s; cociente máximo/media {r['cociente']}; tendencia "

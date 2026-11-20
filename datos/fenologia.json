@@ -1,0 +1,29 @@
+{
+  "_descripcion": "Calendario fenológico aproximado del Malbec por oasis, para evaluate_risk. Cada etapa empieza en la fecha indicada (MM-DD) y dura hasta la siguiente. 'periodo_critico' es el período de mayor sensibilidad a la peronóspora: desde brotes de 15-20 cm (aprox. 3 semanas después de la brotación) hasta baya tamaño arveja (aprox. 3 semanas después del cuaje). Fechas aproximadas: el informe debe aclararlo.",
+  "fuentes": [
+    "Informe Fenológico Campaña 2025, Dirección de Agricultura de Mendoza",
+    "Rodríguez et al. (2000), UNCuyo",
+    "AWRI, Managing Downy Mildew (período crítico)"
+  ],
+  "perfiles": ["vid"],
+  "oasis": {
+    "norte": {
+      "etapas": [["reposo", "05-15"], ["brotación", "09-25"], ["brotes en crecimiento", "10-15"], ["floración", "10-25"], ["cuaje", "11-10"], ["crecimiento de bayas", "11-25"], ["envero", "01-15"], ["maduración", "03-01"], ["cosecha y poscosecha", "04-01"]],
+      "periodo_critico": ["10-15", "12-05"]
+    },
+    "este": {
+      "etapas": [["reposo", "05-15"], ["brotación", "09-15"], ["brotes en crecimiento", "10-05"], ["floración", "11-01"], ["cuaje", "11-10"], ["crecimiento de bayas", "11-25"], ["envero", "01-15"], ["maduración", "03-01"], ["cosecha y poscosecha", "04-01"]],
+      "periodo_critico": ["10-05", "12-05"]
+    },
+    "valle_de_uco": {
+      "etapas": [["reposo", "05-15"], ["brotación", "09-25"], ["brotes en crecimiento", "10-15"], ["floración", "11-10"], ["cuaje", "11-25"], ["crecimiento de bayas", "12-10"], ["envero", "01-20"], ["maduración", "03-01"], ["cosecha y poscosecha", "04-01"]],
+      "periodo_critico": ["10-15", "12-20"],
+      "nota": "Cuaje estimado: sin registro en el informe fenológico."
+    },
+    "sur": {
+      "etapas": [["reposo", "05-15"], ["brotación", "09-25"], ["brotes en crecimiento", "10-15"], ["floración", "10-25"], ["cuaje", "11-10"], ["crecimiento de bayas", "11-25"], ["envero", "01-15"], ["maduración", "03-01"], ["cosecha y poscosecha", "04-01"]],
+      "periodo_critico": ["10-15", "12-05"],
+      "nota": "Cuaje estimado: sin registro en el informe fenológico."
+    }
+  }
+}
