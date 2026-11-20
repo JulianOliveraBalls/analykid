@@ -246,6 +246,7 @@ memoria.db
 thread_actual.txt
 conversaciones.txt
 tectonic.exe
+tectonic
 output/
 # --- AnalyKid ---
 # Material de la cátedra (PDF y notebooks de teoría): queda local, no es nuestro

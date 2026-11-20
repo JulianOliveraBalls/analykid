@@ -1,6 +1,5 @@
 """Tests de create_pdf: plantilla, rechazo de comandos y compilación del ejemplo de la skill."""
 import re
-import shutil
 from pathlib import Path
 
 import pytest
@@ -25,7 +24,7 @@ def test_ejemplo_de_la_skill_no_usa_comandos_prohibidos():
     assert not any(p in _ejemplo() for p in report.PROHIBIDO)
 
 
-@pytest.mark.skipif(shutil.which("tectonic") is None, reason="Tectonic no está instalado")
+@pytest.mark.skipif(report._tectonic() is None, reason="Tectonic no está instalado")
 def test_ejemplo_de_la_skill_compila(tmp_path):
     tex = tmp_path / "ejemplo.tex"
     tex.write_text(report.armar_tex("Plan de contingencia", _ejemplo()), encoding="utf-8")

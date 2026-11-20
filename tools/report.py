@@ -25,6 +25,9 @@ PLANTILLA = r"""\documentclass[11pt]{article}
 \usepackage{longtable}
 \usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
+\usepackage{newunicodechar}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{≤}{\ensuremath{\leq}}
 \definecolor{nverde}{HTML}{2E7D32}
 \definecolor{namarillo}{HTML}{F9A825}
 \definecolor{nnaranja}{HTML}{EF6C00}
