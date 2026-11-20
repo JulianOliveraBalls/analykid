@@ -18,14 +18,15 @@ URL = "https://flood-api.open-meteo.com/v1/flood"
 UMBRAL_TENDENCIA = 0.10   # variación relativa entre el primer y el último día
 
 
+def media_del_dia(medias_por_dia: list, iso: str) -> float | None:
+    """Media 1991-2020 de una fecha (índice con calendario bisiesto: el 29/2 es el 59)."""
+    d = date.fromisoformat(iso)
+    return medias_por_dia[(date(2000, d.month, d.day) - date(2000, 1, 1)).days]
+
+
 def media_historica(medias_por_dia: list, fechas: list[str]) -> float | None:
-    """Promedio de la media 1991-2020 de cada fecha (índice con calendario bisiesto)."""
-    valores = []
-    for iso in fechas:
-        d = date.fromisoformat(iso)
-        v = medias_por_dia[(date(2000, d.month, d.day) - date(2000, 1, 1)).days]
-        if v is not None:
-            valores.append(v)
+    """Promedio de la media 1991-2020 de las fechas del período."""
+    valores = [v for f in fechas if (v := media_del_dia(medias_por_dia, f)) is not None]
     return sum(valores) / len(valores) if valores else None
 
 
@@ -49,7 +50,8 @@ def calcular(fechas: list[str], caudales: list, medias_por_dia: list) -> dict | 
         "media_1991_2020_m3s": round(media),
         "cociente": round(q_max / media, 2),
         "tendencia": tendencia([q for _, q in pares]),
-        "serie": [{"fecha": f, "caudal_m3s": round(q, 1)} for f, q in pares],
+        "serie": [{"fecha": f, "caudal_m3s": round(q, 1),
+                   "media_1991_2020_m3s": media_del_dia(medias_por_dia, f)} for f, q in pares],
     }
 
 
