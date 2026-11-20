@@ -11,6 +11,11 @@ from langchain_core.language_models import BaseChatModel
 
 load_dotenv()
 
+# Reintentos ante 429 y errores transitorios: los resuelve el cliente de cada
+# proveedor, con espera exponencial (por eso no hay middleware de reintentos).
+REINTENTOS = 6
+TIMEOUT_S = 120
+
 
 def _exigir(variable: str) -> None:
     if not os.getenv(variable):
@@ -34,7 +39,8 @@ def get_model() -> BaseChatModel:
         _exigir("GOOGLE_API_KEY")
         # include_thoughts=True: Gemini devuelve resúmenes de su razonamiento.
         return init_chat_model(
-            name, model_provider=provider, temperature=0, include_thoughts=True
+            name, model_provider=provider, temperature=0, include_thoughts=True,
+            max_retries=REINTENTOS, timeout=TIMEOUT_S,
         )
 
     if provider == "openrouter":
@@ -43,7 +49,8 @@ def get_model() -> BaseChatModel:
 
         # ChatOpenRouter lee OPENROUTER_API_KEY del entorno.
         return ChatOpenRouter(
-            model=name, temperature=0, reasoning={"effort": "high", "summary": "auto"}
+            model=name, temperature=0, reasoning={"effort": "high", "summary": "auto"},
+            max_retries=REINTENTOS, request_timeout=TIMEOUT_S,
         )
 
     raise RuntimeError(
