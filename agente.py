@@ -22,7 +22,7 @@ from tools import TOOLS, Context, AnalyKidState, listar_skills
 
 # La fecha se fija al iniciar el programa; no se actualiza si la sesión cruza la medianoche.
 HOY = date.today()
-MODELO = f"{os.getenv('MODEL_PROVIDER', 'google_genai')} · {os.getenv('MODEL_NAME', 'gemini-2.5-flash')}"
+MODELO = f"{os.getenv('MODEL_PROVIDER', 'google_genai')} · {os.getenv('MODEL_NAME', 'gemini-3.5-flash-lite')}"
 
 SYSTEM_PROMPT = f"""Sos AnalyKid: armás planes de contingencia en PDF ante el riesgo hídrico y \
 climático de fincas y localidades de Mendoza durante El Niño 2026-2027. Respondé en español \

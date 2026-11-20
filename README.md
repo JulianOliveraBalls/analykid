@@ -22,7 +22,7 @@ pip install -r requirements.txt
 cp .env.example .env               # Windows: Copy-Item .env.example .env
 ```
 
-Completá las claves en el `.env`. Por defecto se usa `gemini-2.5-flash`; con `MODEL_PROVIDER=openrouter` se usa OpenRouter como respaldo.
+Completá las claves en el `.env`. Por defecto se usa `gemini-3.5-flash-lite` con `THINKING_LEVEL=medium` (tier gratuito: 15 pedidos por minuto y 500 por día; Gemini 2.5 Flash tiene un límite diario mucho menor). Con `MODEL_PROVIDER=openrouter` se usa OpenRouter como respaldo.
 
 **Tectonic.** Linux y macOS: `brew install tectonic` o `conda install -c conda-forge tectonic`. Windows: descargá `tectonic.exe` desde [releases](https://github.com/tectonic-typesetting/tectonic/releases). Si no queda en el `PATH`, definí `TECTONIC_PATH` en el `.env`. La primera compilación descarga paquetes y tarda: corré los tests una vez antes de la demo.
 
@@ -81,7 +81,7 @@ python scripts/descargar_respaldo_enso.py    # copia del RONI para funcionar sin
 
 ## Notas
 
-- **Razonamiento:** Gemini devuelve resúmenes de su razonamiento con `include_thoughts=True` y la UI los muestra en «💭 Razonamiento». Si el modelo no los devuelve, esos bloques no aparecen y todo lo demás funciona igual.
+- **Razonamiento:** Gemini devuelve resúmenes de su razonamiento con `include_thoughts=True` (en Gemini 3+, además, con `THINKING_LEVEL`) y la UI los muestra en «💭 Razonamiento». Si el modelo no los devuelve, esos bloques no aparecen y todo lo demás funciona igual.
 - **Errores:** ninguna tool lanza excepciones. Ante una falla devuelven `ERROR <tool>: <causa>. <qué hacer>` y el agente sigue: la amenaza afectada queda «sin datos», nunca en verde. El 429 del modelo lo reintenta el cliente con espera exponencial; el de las APIs, `pedir()` (2, 4 y 8 s).
 - **PDF:** Tectonic corre sin shell, con argumentos fijos y en modo `--untrusted`, y el cuerpo se filtra con una lista de comandos prohibidos. Es adecuado para uso local.
 - El informe **no reemplaza** las alertas oficiales del SMN ni las indicaciones de Defensa Civil.

@@ -33,14 +33,18 @@ def get_embeddings():
 def get_model() -> BaseChatModel:
     """Gemini (principal) u OpenRouter (respaldo), según MODEL_PROVIDER."""
     provider = os.getenv("MODEL_PROVIDER", "google_genai")
-    name = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+    name = os.getenv("MODEL_NAME", "gemini-3.5-flash-lite")
 
     if provider == "google_genai":
         _exigir("GOOGLE_API_KEY")
         # include_thoughts=True: Gemini devuelve resúmenes de su razonamiento.
+        # Los Gemini 3+ (los Flash Lite sobre todo) solo los devuelven si además
+        # se fija THINKING_LEVEL (low | medium | high); Gemini 2.5 no lo usa.
+        nivel = os.getenv("THINKING_LEVEL")
         return init_chat_model(
             name, model_provider=provider, temperature=0, include_thoughts=True,
             max_retries=REINTENTOS, timeout=TIMEOUT_S,
+            **({"thinking_level": nivel} if nivel else {}),
         )
 
     if provider == "openrouter":
