@@ -1,8 +1,10 @@
-# 🌧️ AnalyKid
+<img src="assets/analykid-logo.svg" alt="" width="72">
+
+# AnalyKid
 
 Agente hecho con `create_agent` de LangChain que arma un **plan de contingencia en PDF** ante el riesgo hídrico y climático de fincas y localidades de Mendoza durante El Niño 2026-2027.
 
-Consulta el estado de El Niño (NOAA), el pronóstico (Open-Meteo), el caudal de los ríos (Flood API, GloFAS) y las alertas oficiales (SMN, Gobierno de Mendoza, Irrigación, INA). Calcula en código un semáforo por amenaza (pluvial, granizo/tormenta, aluvional, crecida y sanitaria) y la etapa del cultivo con `evaluate_risk`, busca medidas con cita en una base de conocimiento propia y compila el informe con Tectonic. La interfaz de Streamlit muestra en vivo el razonamiento y cada tool que usa. La memoria por conversación permite seguir con «¿y si la finca estuviera en San Rafael?».
+Consulta el estado de El Niño (NOAA), el pronóstico (Open-Meteo), el caudal de los ríos (Flood API, GloFAS) y las alertas oficiales (SMN, Gobierno de Mendoza, Irrigación, INA). Calcula en código un semáforo por amenaza (pluvial, granizo/tormenta, aluvional, crecida y sanitaria) y la etapa del cultivo con `evaluate_risk`, busca medidas con cita en una base de conocimiento propia y compila el informe con Tectonic. La interfaz de Streamlit muestra en vivo el recorrido del agente, paso a paso: la cadena de pensamiento del modelo y, por cada tool, la invocación, los parámetros que le pasa y el resultado que recibe. La memoria por conversación permite seguir con «¿y si la finca estuviera en San Rafael?».
 
 ## Requisitos
 
@@ -39,7 +41,9 @@ python -m rag.evaluar              # opcional: acierto@4 sobre 12 preguntas
 streamlit run app.py
 ```
 
-La consulta se arma con el formulario de la barra lateral (localidad, perfil, superficie y días), con los ejemplos de la pantalla inicial o escribiendo en el chat. Cada respuesta muestra arriba el semáforo por amenaza, el mapa y pestañas con pronóstico, caudal, alertas, fuentes y el PDF; abajo, el recorrido del agente (razonamiento y cada tool) y la respuesta final.
+La consulta se arma con el formulario de la barra lateral (localidad, perfil, superficie y días), con los ejemplos de la pantalla inicial o escribiendo en el chat. Cada respuesta muestra arriba el semáforo por amenaza, el mapa y pestañas con pronóstico, caudal, alertas, fuentes y el PDF; después, la respuesta final; y abajo, el recorrido del agente.
+
+**Recorrido del agente.** Cada respuesta del modelo es un paso. En cada paso se ve la cadena de pensamiento (el razonamiento que expone el modelo y lo que anuncia) y, por cada tool que pidió, cuatro cosas: la invocación (qué tool), los parámetros exactos que le pasó el modelo (JSON), el resultado que recibió (el texto completo del `ToolMessage`) y si terminó bien o con error. Las tools de un mismo paso se piden en paralelo. El recorrido del último turno queda desplegado; los anteriores, plegados.
 
 Demo en dos turnos:
 
@@ -57,8 +61,9 @@ No usan red ni el modelo: datos, `pedir()` ante 429 y timeout, indicadores de ca
 ## Estructura
 
 ```
-├── app.py            # UI de Streamlit: formulario, panel (semáforo, mapa, pestañas, PDF) y recorrido del agente
+├── app.py            # UI de Streamlit: formulario, panel (semáforo, mapa, pestañas, PDF) y recorrido paso a paso
 ├── .streamlit/       # tema de la interfaz
+├── assets/           # logo de la app
 ├── agente.py         # system prompt (flujo y semáforo), create_agent, memoria y streaming
 ├── model.py          # Gemini u OpenRouter, con reintentos ante 429; embeddings
 ├── tools/            # common.py (estado, respond, pedir) y una tool por archivo:
@@ -84,7 +89,7 @@ python scripts/descargar_respaldo_enso.py    # copia del RONI para funcionar sin
 
 ## Notas
 
-- **Razonamiento:** Gemini devuelve resúmenes de su razonamiento con `include_thoughts=True` (en Gemini 3+, además, con `THINKING_LEVEL`) y la UI los muestra en «💭 Razonamiento». Si el modelo no los devuelve, esos bloques no aparecen y todo lo demás funciona igual.
+- **Razonamiento:** Gemini devuelve resúmenes de su razonamiento con `include_thoughts=True` (en Gemini 3+, además, con `THINKING_LEVEL`) y la UI los muestra en «Cadena de pensamiento», dentro de cada paso del recorrido. Si el modelo no los devuelve en un paso, la UI lo dice en ese paso y todo lo demás funciona igual.
 - **Errores:** ninguna tool lanza excepciones. Ante una falla devuelven `ERROR <tool>: <causa>. <qué hacer>` y el agente sigue: la amenaza afectada queda «sin datos», nunca en verde. El 429 y el 503 del modelo los reintenta el cliente con espera exponencial; si persisten, `ModelFallbackMiddleware` (el único middleware) repite la llamada con `MODEL_FALLBACK`. Los de las APIs los reintenta `pedir()` (2, 4 y 8 s).
 - **PDF:** Tectonic corre sin shell, con argumentos fijos y en modo `--untrusted`, y el cuerpo se filtra con una lista de comandos prohibidos. Es adecuado para uso local.
 - El informe **no reemplaza** las alertas oficiales del SMN ni las indicaciones de Defensa Civil.
