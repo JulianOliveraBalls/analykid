@@ -30,8 +30,8 @@ Un requisito obligatorio ausente deja su criterio en «No logrado»: esta tabla 
 | Errores sin romper el flujo | Ninguna tool lanza excepciones: devuelven `ERROR` legible |
 | Memoria con checkpointer, demostrada | `SqliteSaver` por `thread_id`; turno 2 depende del 1 |
 | UI web que renderiza markdown | Streamlit + `st.markdown` |
-| Cada tool con argumentos y resumen del resultado, en orden, en streaming | `stream_mode="values"` + recuadro «Recorrido del agente» con cada llamada y su resultado |
-| Razonamiento diferenciado si el modelo lo expone; si no, documentarlo | `include_thoughts=True` + `thinking_level`; bloques `reasoning` en un recuadro propio del recorrido |
+| Cada tool con argumentos y resumen del resultado, en orden, en streaming | `stream_mode="values"` + «Recorrido del agente, paso a paso»: por cada tool, la invocación, los parámetros y el resultado completo |
+| Razonamiento diferenciado si el modelo lo expone; si no, documentarlo | `include_thoughts=True` + `thinking_level`; bloques `reasoning` en «Cadena de pensamiento», al comienzo de cada paso |
 | Conocimiento propio: RAG (≥ 3 documentos, cita de origen, usado en el flujo principal) o skills | RAG con 6 documentos y cita, más 3 skills (sección 6) |
 | Tamaño de lo recuperado acorde al contexto | k = 4, fragmentos ≤ 900 caracteres, ≤ 7 consultas por informe (la de temporada siempre) |
 | Middleware mínimo y justificado | Dos: modelo de respaldo ante 503/429 y recordatorio cuando el modelo anuncia sin actuar (sección 8) |
@@ -165,7 +165,8 @@ Diciembre a febrero: crecimiento de bayas y envero; marzo: maduración. Fuentes:
 - Barra lateral: formulario (localidad, perfil, superficie, días), conversaciones y modelo activo. Pantalla inicial con ejemplos.
 - Panel de resultado: tarjetas del semáforo por amenaza, cronograma antes/durante/después, «Qué haría subir el nivel», mapa de la localidad y el punto del río, ENSO, contactos y descarga del PDF.
 - Pestañas: Pronóstico (tabla y gráfico), Caudal (serie contra la media 1991-2020), Alertas, Fuentes e Informe (PDF embebido con `st.pdf`).
-- «Recorrido del agente» en vivo con `stream_mode="values"`: razonamiento, cada llamada con sus argumentos y el resumen del resultado; termina en error si el resultado empieza con `ERROR`.
+- «Recorrido del agente, paso a paso» en vivo con `stream_mode="values"`: cada respuesta del modelo es un paso con su cadena de pensamiento y, por cada tool, la invocación, los parámetros exactos (JSON) y el resultado completo que recibe el modelo; el paso queda en error si algún resultado empieza con `ERROR`.
+- Identidad: logo en `assets/`, paleta azul marino en `.streamlit/config.toml` y sin emojis; los únicos colores fuera de la paleta son los del semáforo.
 - Respuesta final con `st.markdown`. Errores 503 y 429 con un mensaje claro, sin romper la app.
 - Conversaciones guardadas sin algún campo nuevo se completan desde el catálogo.
 

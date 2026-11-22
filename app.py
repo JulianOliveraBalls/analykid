@@ -1,13 +1,17 @@
 """UI de Streamlit para AnalyKid.
 
 Cada respuesta tiene tres partes: el panel de resultado (semáforo, mapa y
-pestañas con los datos de las tools), el recorrido del agente (razonamiento y
-cada tool en vivo) y la respuesta final. La lógica vive en agente.py; acá solo
-se dibujan los eventos que emite.
+pestañas con los datos de las tools), la respuesta final y el recorrido del
+agente, paso a paso: en cada paso se ve la cadena de pensamiento del modelo y,
+por cada tool, la invocación, los parámetros que le pasó y el resultado que
+recibió. La lógica vive en agente.py; acá solo se dibujan los eventos que emite.
 
 Ejecutar con:  streamlit run app.py
 """
+import base64
+import html
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -16,7 +20,11 @@ import streamlit as st
 
 from tools.risk import evaluar, nivel_maximo
 
-st.set_page_config(page_title="AnalyKid", page_icon="🌧️", layout="wide")
+DIR = Path(__file__).parent
+LOGO = DIR / "assets" / "analykid-logo.svg"
+ICONO = str(DIR / "assets" / "analykid-logo.png")   # pestaña del navegador y avatar del chat
+
+st.set_page_config(page_title="AnalyKid", page_icon=ICONO, layout="wide")
 
 try:
     from agente import (
@@ -26,56 +34,107 @@ except RuntimeError as e:  # por ejemplo, faltan API keys en el .env
     st.error(str(e))
     st.stop()
 
-DIR = Path(__file__).parent
 LOCALIDADES = json.loads((DIR / "datos" / "localidades.json").read_text(encoding="utf-8"))["localidades"]
 RIOS = json.loads((DIR / "datos" / "rios.json").read_text(encoding="utf-8"))["rios"]
 OASIS = {"norte": "Norte", "este": "Este", "valle_de_uco": "Valle de Uco", "sur": "Sur",
          "alta_montana": "Alta montaña"}
 PERFILES = {"vid": "Vid", "frutal": "Frutal", "hortaliza": "Hortaliza", "urbano": "Urbano"}
 EJEMPLOS = [
-    ("🍇 Vid en Tupungato", "Armame el plan de contingencia para una finca de vid de 10 hectáreas "
-                           "en Tupungato para los próximos 7 días"),
-    ("🍑 Frutal en San Rafael", "Armame el plan de contingencia para una finca de frutales de 25 "
-                               "hectáreas en San Rafael para los próximos 5 días"),
-    ("🏘️ Zona urbana en Luján de Cuyo", "Armame el plan de contingencia para la zona urbana de "
-                                       "Luján de Cuyo, perfil urbano, para los próximos 7 días"),
+    ("Vid en Tupungato", "Armame el plan de contingencia para una finca de vid de 10 hectáreas "
+                         "en Tupungato para los próximos 7 días"),
+    ("Frutal en San Rafael", "Armame el plan de contingencia para una finca de frutales de 25 "
+                             "hectáreas en San Rafael para los próximos 5 días"),
+    ("Zona urbana en Luján de Cuyo", "Armame el plan de contingencia para la zona urbana de "
+                                     "Luján de Cuyo, perfil urbano, para los próximos 7 días"),
 ]
-ICONO_NIVEL = {"verde": "🟢", "amarillo": "🟡", "naranja": "🟠", "rojo": "🔴",
-               "sin datos": "⚪", "no aplica": "➖"}
+# Qué es cada tool y de dónde saca el dato, para el recorrido del agente.
 TITULOS = {
-    "get_enso_status": ("🌊", "Estado de El Niño (NOAA)"),
-    "get_weather_forecast": ("🌦️", "Pronóstico"),
-    "get_river_discharge": ("🏞️", "Caudal del río"),
-    "web_search": ("🚨", "Alertas oficiales"),
-    "evaluate_risk": ("🚦", "Evaluación de riesgo"),
-    "search_knowledge_base": ("📚", "Base de conocimiento"),
-    "load_skill": ("📖", "Skill"),
-    "create_pdf": ("📄", "Informe PDF"),
+    "get_enso_status": ("Estado de El Niño", "NOAA, índice RONI"),
+    "get_weather_forecast": ("Pronóstico", "Open-Meteo"),
+    "get_river_discharge": ("Caudal del río", "Flood API, GloFAS"),
+    "web_search": ("Alertas oficiales", "Tavily sobre dominios oficiales"),
+    "evaluate_risk": ("Evaluación de riesgo", "umbrales en código, lee el estado"),
+    "search_knowledge_base": ("Base de conocimiento", "RAG propio"),
+    "load_skill": ("Skill", "instrucciones en skills/"),
+    "create_pdf": ("Informe PDF", "control de contenido y Tectonic"),
 }
+ALTO_BLOQUE = 240      # px: los resultados largos (skills, RAG, LaTeX) se recorren con scroll
+LINEAS_SIN_SCROLL = 9
+
+# Marca: blanco, texto oscuro y el azul solo en detalles. Los únicos colores fuera de la
+# paleta son los del semáforo.
+NAVY, AZUL, GRIS = "#0B1F5C", "#1226B4", "#6B7280"
 
 st.markdown("""
 <style>
+:root {--ak-navy: #0B1F5C; --ak-azul: #1226B4; --ak-tinta: #1A1D26; --ak-gris: #6B7280;
+  --ak-hilo: #D9DEEA; --ak-fondo: #F3F5FB;
+  --ak-verde: #1F8A4C; --ak-amarillo: #D9A400; --ak-naranja: #E36A00; --ak-rojo: #C1272D;}
 .block-container {padding-top: 1.6rem; max-width: 1200px;}
-.ak-hero {background: linear-gradient(120deg, #0E7490 0%, #155E75 60%, #164E63 100%);
-  color: #fff; border-radius: 14px; padding: 18px 24px; margin-bottom: 14px;}
-.ak-hero h1 {color: #fff; font-size: 1.9rem; margin: 0; padding: 0;}
-.ak-hero p {margin: 4px 0 0; opacity: .9;}
-.ak-card {border-radius: 12px; padding: 12px 14px; min-height: 118px; color: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,.12);}
-.ak-card .ak-amenaza {font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; opacity: .9;}
-.ak-card .ak-nivel {font-size: 1.35rem; font-weight: 700; margin: 2px 0 4px;}
-.ak-card .ak-motivo {font-size: .82rem; line-height: 1.25; opacity: .95;}
-.ak-verde {background: #2E7D32;} .ak-amarillo {background: #F9A825; color: #1F2933;}
-.ak-naranja {background: #EF6C00;} .ak-rojo {background: #C62828;}
-.ak-sin-datos, .ak-no-aplica {background: #78909C;}
-.ak-titulo {display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin: 4px 0 10px;}
-.ak-titulo h3 {margin: 0; padding: 0;}
-.ak-chip {display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: .8rem;
-  background: #E6F0F3; color: #155E75;}
-.ak-razonamiento {border-left: 3px solid #0E7490; background: #F0F7F9; padding: 8px 12px;
-  border-radius: 0 8px 8px 0; font-style: italic; color: #334E58; margin: 4px 0 8px; font-size: .9rem;}
+.ak-hero {display: flex; align-items: center; gap: 16px; padding: 2px 0 14px;
+  border-bottom: 1.5px solid var(--ak-navy); margin-bottom: 18px;}
+.ak-hero img {height: 52px;}
+.ak-hero h1 {color: var(--ak-navy); font-size: 1.9rem; font-weight: 600; margin: 0; padding: 0;
+  letter-spacing: -.01em;}
+.ak-hero p {margin: 2px 0 0; color: var(--ak-gris); font-size: .95rem;}
+.ak-seccion {font-size: .78rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 600;
+  color: var(--ak-azul); display: flex; align-items: center; gap: 10px; margin: 18px 0 8px;}
+.ak-seccion::after {content: ""; flex: 1; border-top: 1px solid var(--ak-hilo);}
+.ak-card {border: 1px solid var(--ak-hilo); border-top: 4px solid var(--ak-gris); border-radius: 8px;
+  padding: 10px 12px; min-height: 124px; background: #fff;}
+.ak-card .ak-amenaza {font-size: .74rem; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ak-gris); font-weight: 600;}
+.ak-card .ak-nivel {font-size: 1.2rem; font-weight: 600; color: var(--ak-tinta); margin: 4px 0;
+  display: flex; align-items: center; gap: 8px;}
+.ak-card .ak-motivo {font-size: .8rem; line-height: 1.3; color: var(--ak-tinta);}
+.ak-punto {display: inline-block; width: .7em; height: .7em; border-radius: 50%;
+  background: var(--ak-gris); flex: none;}
+.ak-verde {border-top-color: var(--ak-verde);}
+.ak-amarillo {border-top-color: var(--ak-amarillo);}
+.ak-naranja {border-top-color: var(--ak-naranja);}
+.ak-rojo {border-top-color: var(--ak-rojo);}
+.ak-verde .ak-punto, .ak-punto.ak-verde {background: var(--ak-verde);}
+.ak-amarillo .ak-punto, .ak-punto.ak-amarillo {background: var(--ak-amarillo);}
+.ak-naranja .ak-punto, .ak-punto.ak-naranja {background: var(--ak-naranja);}
+.ak-rojo .ak-punto, .ak-punto.ak-rojo {background: var(--ak-rojo);}
+.ak-titulo {display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 4px 0 10px;}
+.ak-titulo h3 {margin: 0; padding: 0; color: var(--ak-navy); font-weight: 600;}
+.ak-chip {display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
+  padding: 2px 10px; font-size: .8rem; background: var(--ak-fondo); color: var(--ak-navy);}
+.ak-etiqueta {font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
+  color: var(--ak-gris); margin: 10px 0 4px;}
+.ak-razonamiento {border-left: 2px solid var(--ak-azul); background: var(--ak-fondo);
+  padding: 8px 12px; color: var(--ak-tinta); margin: 0 0 8px; font-size: .9rem; line-height: 1.45;}
+.ak-invocacion {display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  border-top: 1px solid var(--ak-hilo); padding-top: 10px; margin-top: 12px;}
+.ak-invocacion .ak-n {font-size: .78rem; font-weight: 600; color: var(--ak-azul);}
+.ak-invocacion code {font-size: .95rem; font-weight: 600; color: var(--ak-navy);
+  background: var(--ak-fondo); padding: 1px 8px; border-radius: 4px;}
+.ak-invocacion .ak-que {font-size: .85rem; color: var(--ak-gris);}
+.ak-estado {font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
+  border-radius: 4px; padding: 1px 7px; margin-left: 6px;}
+.ak-estado.ak-ok {color: var(--ak-verde); border: 1px solid var(--ak-verde);}
+.ak-estado.ak-error {color: var(--ak-rojo); border: 1px solid var(--ak-rojo);}
+.ak-estado.ak-espera {color: var(--ak-gris); border: 1px solid var(--ak-hilo);}
 </style>
 """, unsafe_allow_html=True)
+
+
+def _seccion(titulo: str) -> None:
+    st.markdown(f'<div class="ak-seccion">{titulo}</div>', unsafe_allow_html=True)
+
+
+def _etiqueta(texto: str, estado: str = "") -> None:
+    marca = {"ok": '<span class="ak-estado ak-ok">ok</span>',
+             "error": '<span class="ak-estado ak-error">error</span>',
+             "espera": '<span class="ak-estado ak-espera">en curso</span>'}.get(estado, "")
+    st.markdown(f'<div class="ak-etiqueta">{texto}{marca}</div>', unsafe_allow_html=True)
+
+
+def _bloque(texto: str, lenguaje: str | None = None) -> None:
+    """Texto exacto en un bloque de código; los largos quedan con altura fija y scroll."""
+    largo = texto.count("\n") >= LINEAS_SIN_SCROLL or len(texto) > 900
+    st.code(texto, language=lenguaje, wrap_lines=True, **({"height": ALTO_BLOQUE} if largo else {}))
 
 
 def _dm(iso: str | None) -> str:
@@ -88,27 +147,7 @@ def init_session(config) -> None:
     st.session_state.historial = saved_turns(config)   # lista de (pregunta, eventos)
 
 
-# --- Recorrido del agente: razonamiento y tools en vivo ---------------------------
-
-def _titulo(e: dict) -> str:
-    icono, nombre = TITULOS.get(e["nombre"], ("🔧", e["nombre"]))
-    args = e["args"]
-    detalle = {
-        "get_weather_forecast": f"{args.get('localidad', '')}, {args.get('dias', 7)} días",
-        "get_river_discharge": args.get("localidad", args.get("rio", "")),
-        "evaluate_risk": f"perfil {args.get('perfil', '')}",
-        "web_search": args.get("zona", ""),
-        "search_knowledge_base": f"«{args.get('consulta', '')}»",
-        "load_skill": args.get("nombre", ""),
-        "create_pdf": f"«{args.get('titulo', '')}»",
-    }.get(e["nombre"], "")
-    return f"{icono} **{nombre}**" + (f" · {detalle}" if detalle else "")
-
-
-def _resumen(texto: str) -> str:
-    primera = texto.strip().splitlines()[0] if texto.strip() else ""
-    return primera[:220] + ("…" if len(primera) > 220 else "")
-
+# --- Recorrido del agente: un paso por cada respuesta del modelo -----------------
 
 class Turno:
     """Acumula lo que devolvieron las tools en un turno, para el panel de resultado."""
@@ -120,42 +159,126 @@ class Turno:
         self.textos: list[tuple[int, str]] = []  # (posición del evento, texto)
         self.ultima_llamada = -1
         self.errores = 0
+        self.pasos = 0
 
 
-def render_recorrido(eventos, turno: Turno) -> list[dict]:
-    """Dibuja razonamiento y tools a medida que llegan. Devuelve los eventos dibujados."""
-    emitidos, pendientes, placeholders = [], {}, {}
+class Paso:
+    """Un paso del ciclo del agente: lo que el modelo pensó y las tools que pidió en esa respuesta.
+
+    Las tools de un mismo paso se piden juntas (en paralelo); el paso se cierra cuando el
+    modelo vuelve a responder.
+    """
+
+    def __init__(self, n: int, vivo: bool, desplegado: bool):
+        self.n, self.desplegado = n, desplegado
+        self.nombres: list[str] = []
+        self.errores = 0
+        self.con_pensamiento = False
+        self.caja = st.status(f"Paso {n}", expanded=desplegado, state="running" if vivo else "complete")
+
+    def pensamiento(self) -> None:
+        """Encabezado de la cadena de pensamiento, una sola vez por paso."""
+        if not self.con_pensamiento:
+            _etiqueta("Cadena de pensamiento")
+            self.con_pensamiento = True
+
+    def cerrar(self) -> None:
+        if self.nombres:
+            detalle = ", ".join(dict.fromkeys(self.nombres))
+            if len(self.nombres) > 1:
+                detalle += f" ({len(self.nombres)} llamadas en paralelo)"
+        else:
+            detalle = "respuesta del modelo, sin tools"
+        if self.errores:
+            detalle += f" · {self.errores} con error"
+        self.caja.update(label=f"Paso {self.n} · {detalle}", expanded=self.desplegado,
+                         state="error" if self.errores else "complete")
+
+
+def _invocacion(paso: Paso, e: dict) -> dict:
+    """Dibuja la invocación y los parámetros; devuelve los huecos donde irá el resultado."""
+    que, fuente = TITULOS.get(e["nombre"], (e["nombre"], ""))
+    st.markdown(
+        f'<div class="ak-invocacion"><span class="ak-n">{paso.n}.{len(paso.nombres)}</span>'
+        f'<span>Invocación</span><code>{html.escape(e["nombre"])}</code>'
+        f'<span class="ak-que">{que}{" · " + fuente if fuente else ""}</span></div>',
+        unsafe_allow_html=True)
+    izq, der = st.columns([2, 3])
+    with izq:
+        _etiqueta("Parámetros que pasa el modelo")
+        if e["args"]:
+            _bloque(json.dumps(e["args"], ensure_ascii=False, indent=2), "json")
+        else:
+            st.caption("Sin parámetros: la tool usa sus valores por defecto.")
+    with der:
+        titulo, cuerpo = st.empty(), st.empty()
+        with titulo:
+            _etiqueta("Resultado que recibe el modelo", "espera")
+        cuerpo.caption("Esperando la respuesta de la tool…")
+    return {"llamada": e, "paso": paso, "titulo": titulo, "cuerpo": cuerpo}
+
+
+def render_recorrido(eventos, turno: Turno, vivo: bool, desplegado: bool) -> list[dict]:
+    """Dibuja el recorrido a medida que llegan los eventos. Devuelve los eventos dibujados.
+
+    Cada respuesta del modelo abre un paso: primero su cadena de pensamiento (el
+    razonamiento que expone el modelo y lo que anuncia) y después, por cada tool que
+    pidió, la invocación, los parámetros y el resultado.
+    """
+    emitidos, pendientes, finales = [], {}, {}
+    paso, anterior = None, "resultado"
     for pos, e in enumerate(eventos):
         emitidos.append(e)
         tipo = e["tipo"]
-        if tipo == "razonamiento":
-            texto = "<br>".join(l.strip() for l in e["texto"].splitlines() if l.strip())
-            st.markdown(f'<div class="ak-razonamiento">💭 {texto}</div>', unsafe_allow_html=True)
-        elif tipo == "texto":
-            placeholders[pos] = st.empty()
-            placeholders[pos].markdown(e["texto"])
-            turno.textos.append((pos, e["texto"]))
-        elif tipo == "llamada":
-            turno.ultima_llamada = pos
-            turno.llamadas.add(e["nombre"])
-            caja = st.empty()
-            caja.markdown(f"⏳ {_titulo(e)}")
-            pendientes[e["id"]] = (e, caja)
-        elif tipo == "resultado":
-            llamada, caja = pendientes.pop(e["id"])
+        if tipo == "fuentes":
+            turno.fuentes = e["fuentes"]
+            continue
+        if tipo != "resultado" and anterior == "resultado":   # el modelo volvió a responder
+            if paso:
+                paso.cerrar()
+            turno.pasos += 1
+            paso = Paso(turno.pasos, vivo, desplegado)
+        anterior = tipo
+        if tipo == "resultado":
+            hueco = pendientes.pop(e["id"])
+            llamada = hueco["llamada"]
             error = e["texto"].startswith("ERROR")
             turno.errores += error
+            hueco["paso"].errores += error
             if not error and e["datos"]:
                 turno.datos[llamada["nombre"]] = e["datos"]
-            with caja.container():
-                st.markdown(f"{'❌' if error else '✅'} {_titulo(llamada)}")
-                st.caption(_resumen(e["texto"]))
-        elif tipo == "fuentes":
-            turno.fuentes = e["fuentes"]
+            with hueco["titulo"]:
+                _etiqueta("Resultado que recibe el modelo", "error" if error else "ok")
+            with hueco["cuerpo"].container():
+                _bloque(e["texto"] or "(sin texto)")
+            continue
+        with paso.caja:
+            if tipo == "razonamiento":
+                paso.pensamiento()
+                # Gemini titula sus resúmenes con **negrita**: es el único markdown que se respeta.
+                texto = "<br>".join(html.escape(l.strip()) for l in e["texto"].splitlines() if l.strip())
+                texto = re.sub(r"\*\*(.+?)\*\*", r"<b>\g<1></b>", texto)
+                st.markdown(f'<div class="ak-razonamiento">{texto}</div>', unsafe_allow_html=True)
+            elif tipo == "texto":
+                paso.pensamiento()
+                finales[pos] = st.empty()
+                finales[pos].markdown(e["texto"])
+                turno.textos.append((pos, e["texto"]))
+            elif tipo == "llamada":
+                if not paso.con_pensamiento:
+                    paso.pensamiento()
+                    st.caption("El modelo no devolvió razonamiento ni texto en este paso: "
+                               "pidió las tools directamente.")
+                turno.ultima_llamada = pos
+                turno.llamadas.add(e["nombre"])
+                paso.nombres.append(e["nombre"])
+                pendientes[e["id"]] = _invocacion(paso, e)
+    if paso:
+        paso.cerrar()
     # La respuesta final (texto posterior a la última tool) se muestra fuera del recorrido.
     for pos, _ in turno.textos:
         if pos > turno.ultima_llamada:
-            placeholders[pos].empty()
+            finales[pos].caption("Es la respuesta final: se muestra arriba, fuera del recorrido.")
     return emitidos
 
 
@@ -166,16 +289,16 @@ def _tarjetas(amenazas: list[dict]) -> None:
         clase = a["nivel"].replace(" ", "-")
         col.markdown(
             f'<div class="ak-card ak-{clase}"><div class="ak-amenaza">{a["amenaza"]}</div>'
-            f'<div class="ak-nivel">{a["nivel"].capitalize()}</div>'
+            f'<div class="ak-nivel"><span class="ak-punto"></span>{a["nivel"].capitalize()}</div>'
             f'<div class="ak-motivo">{a["motivo"]}</div></div>', unsafe_allow_html=True)
 
 
 def _mapa(pron: dict | None, caudal: dict | None) -> None:
     puntos = []
     if pron:
-        puntos.append({"lat": pron["latitud"], "lon": pron["longitud"], "color": "#0E7490E6", "tam": 2500})
+        puntos.append({"lat": pron["latitud"], "lon": pron["longitud"], "color": NAVY + "E6", "tam": 2500})
     if caudal:
-        puntos.append({"lat": caudal["latitud"], "lon": caudal["longitud"], "color": "#2563EBB3", "tam": 1800})
+        puntos.append({"lat": caudal["latitud"], "lon": caudal["longitud"], "color": AZUL + "99", "tam": 1800})
     if puntos:
         st.map(pd.DataFrame(puntos), latitude="lat", longitude="lon", color="color", size="tam",
                zoom=8, height=290)
@@ -191,7 +314,7 @@ def _tab_pronostico(d: dict, riesgo: dict | None) -> None:
         "fecha": "Fecha", "lluvia_mm": "Lluvia (mm)", "prob_pct": "Prob. (%)", "cape_jkg": "CAPE (J/kg)",
         "rafaga_kmh": "Ráfaga (km/h)", "tmax_c": "Máx (°C)", "tmin_c": "Mín (°C)"})
     tabla["Fecha"] = tabla["Fecha"].map(_dm)
-    st.bar_chart(tabla.set_index("Fecha")[["Lluvia (mm)"]], height=200, color="#0E7490")
+    st.bar_chart(tabla.set_index("Fecha")[["Lluvia (mm)"]], height=200, color=AZUL)
     st.dataframe(tabla, hide_index=True, width="stretch")
     i = d["indicadores"]
     c1, c2, c3, c4 = st.columns(4)
@@ -205,7 +328,7 @@ def _tab_caudal(d: dict) -> None:
     serie = pd.DataFrame(d["serie"]).rename(columns={
         "caudal_m3s": "Caudal previsto", "media_1991_2020_m3s": "Media 1991-2020"})
     serie["fecha"] = pd.to_datetime(serie["fecha"])
-    st.line_chart(serie.set_index("fecha"), y_label="m³/s", height=260, color=["#0E7490", "#94A3B8"])
+    st.line_chart(serie.set_index("fecha"), y_label="m³/s", height=260, color=[AZUL, GRIS])
     c1, c2, c3 = st.columns(3)
     c1.metric("Cociente máx. / media", d["cociente"])
     c2.metric("Caudal máx.", f"{d['caudal_max_m3s']} m³/s", _dm(d["fecha_max"]), delta_color="off", delta_arrow="off")
@@ -225,9 +348,9 @@ def _tab_alertas(d: dict | None, llamada: bool) -> None:
     if not alertas:
         st.success("Sin alertas oficiales vigentes. No implica ausencia de riesgo.")
     for a in alertas:
-        st.error(f"🚨 **{a['titulo']}** · {a['dominio']} · {_dm(a['fecha'])}  \n{a.get('resumen', '')}  \n[Ver fuente]({a['url']})")
+        st.error(f"**Alerta oficial · {a['titulo']}** · {a['dominio']} · {_dm(a['fecha'])}  \n{a.get('resumen', '')}  \n[Ver fuente]({a['url']})")
     for a in info:
-        st.info(f"ℹ️ **{a['titulo']}** · {a['dominio']} · {_dm(a['fecha'])}  \n{a.get('resumen', '')}  \n[Ver fuente]({a['url']})")
+        st.info(f"**Información oficial · {a['titulo']}** · {a['dominio']} · {_dm(a['fecha'])}  \n{a.get('resumen', '')}  \n[Ver fuente]({a['url']})")
     if d["descartados"]:
         st.caption(f"{len(d['descartados'])} resultado(s) descartado(s): otro dominio, sin fecha o de más de 48 h.")
 
@@ -237,11 +360,11 @@ def _tab_fuentes(turno: Turno) -> None:
     if conocimiento:
         st.markdown("**Base de conocimiento (última consulta)**")
         for f in conocimiento:
-            st.markdown(f"- 📄 **{f['documento']} — {f['seccion']}** ({f['origen']})")
+            st.markdown(f"- **{f['documento']} — {f['seccion']}** ({f['origen']})")
     if turno.fuentes:
         st.markdown("**Todas las fuentes del turno**")
         for s in turno.fuentes:
-            st.markdown(f"- [{s['title']}]({s['url']})" if s["url"].startswith("http") else f"- 📄 {s['title']}")
+            st.markdown(f"- [{s['title']}]({s['url']})" if s["url"].startswith("http") else f"- {s['title']}")
     if not conocimiento and not turno.fuentes:
         st.caption("Sin fuentes registradas en este turno.")
 
@@ -296,23 +419,23 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
     lugar = pron["nombre"] if pron else (caudal["nombre"] if caudal else "Resultado")
     chips = []
     if pron:
-        chips += [pron["oasis"], f"Río {pron['rio'].capitalize()}",
+        chips += [pron["oasis"], RIOS.get(pron["rio"], {}).get("nombre", f"Río {pron['rio'].capitalize()}"),
                   "Piedemonte" if pron["piedemonte"] else "Fuera del piedemonte"]
     if riesgo and riesgo.get("etapa"):
         e = riesgo["etapa"]
-        chips.append(f"🍇 {e['etapa'].capitalize()}" + (" · período crítico" if e["periodo_critico"] else ""))
-    chips.append(f"{ICONO_NIVEL.get(maximo, '')} Nivel máximo: {maximo}")
-    st.markdown(f'<div class="ak-titulo"><h3>📍 {lugar}</h3>'
+        chips.append(f"Etapa: {e['etapa']}" + (" · período crítico" if e["periodo_critico"] else ""))
+    chips.append(f'<span class="ak-punto ak-{maximo.replace(" ", "-")}"></span>Nivel máximo: {maximo}')
+    st.markdown(f'<div class="ak-titulo"><h3>{lugar}</h3>'
                 + "".join(f'<span class="ak-chip">{c}</span>' for c in chips) + "</div>",
                 unsafe_allow_html=True)
     _tarjetas(amenazas)
     if riesgo and riesgo.get("ventanas"):
-        st.markdown("**Cronograma de acciones**")
+        _seccion("Cronograma de acciones")
         st.dataframe(pd.DataFrame([{"Amenaza": n, "Antes": v["antes"], "Durante": v["durante"],
                                     "Después": v["despues"]} for n, v in riesgo["ventanas"].items()]),
                      hide_index=True, width="stretch")
     if riesgo and riesgo.get("escalamiento"):
-        with st.expander("⬆️ Qué haría subir el nivel"):
+        with st.expander("Qué haría subir el nivel"):
             for regla in riesgo["escalamiento"]:
                 st.markdown(f"- {regla}")
 
@@ -326,19 +449,19 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
         if pron:
             e = pron["emergencias"]
             municipal = e["defensa_civil_municipal"] if e.get("verificado") else None
-            st.markdown("**Contactos de emergencia**")
+            _seccion("Contactos de emergencia")
             cc = e.get("contingencias_climaticas")
-            st.markdown(f"📞 Emergencias: **{e['general']}**" +
-                        (f"  \n📞 Defensa Civil municipal: **{municipal}**" if municipal else
+            st.markdown(f"Emergencias: **{e['general']}**" +
+                        (f"  \nDefensa Civil municipal: **{municipal}**" if municipal else
                          "  \n_Sin contacto municipal verificado_") +
-                        (f"  \n🌾 Denuncia de daños (Contingencias Climáticas, {cc['delegacion']}): "
+                        (f"  \nDenuncia de daños (Contingencias Climáticas, {cc['delegacion']}): "
                          f"**{cc['telefono']}**" if cc else ""))
         if pdf and Path(pdf["pdf"]).exists():
-            st.download_button("⬇️ Descargar plan (PDF)", Path(pdf["pdf"]).read_bytes(),
+            st.download_button("Descargar plan (PDF)", Path(pdf["pdf"]).read_bytes(),
                                file_name=Path(pdf["pdf"]).name, mime="application/pdf",
                                key=f"{clave}-pdf", type="primary", width="stretch")
 
-    nombres = ["🌦️ Pronóstico", "🏞️ Caudal", "🚨 Alertas", "📚 Fuentes"] + (["📄 Informe"] if pdf else [])
+    nombres = ["Pronóstico", "Caudal", "Alertas", "Fuentes"] + (["Informe"] if pdf else [])
     tabs = st.tabs(nombres)
     with tabs[0]:
         if pron:
@@ -361,25 +484,29 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
 
 # --- Un turno completo ---------------------------------------------------------------
 
-def render_turno(eventos, perfil: str | None, clave: str, vivo: bool) -> list[dict]:
-    """Panel arriba, recorrido en el medio, respuesta abajo. Sirve en vivo y para el historial.
+def render_turno(eventos, perfil: str | None, clave: str, vivo: bool, desplegado: bool) -> list[dict]:
+    """Panel arriba, respuesta final en el medio y recorrido abajo. Sirve en vivo y para el historial.
 
-    El panel se crea primero (vacío) y se llena al final, cuando ya llegaron todos los datos.
+    El panel y la respuesta se crean primero (vacíos) y se llenan al final, cuando ya llegaron
+    todos los datos: mientras el agente trabaja, lo único a la vista es el recorrido.
     """
     panel = st.container()
-    turno = Turno()
-    recorrido = st.status("AnalyKid está trabajando…" if vivo else "Recorrido del agente",
-                          expanded=vivo, state="running" if vivo else "complete")
     respuesta = st.container()
-    with recorrido:
-        emitidos = render_recorrido(eventos, turno)
+    turno = Turno()
+    _seccion("Recorrido del agente, paso a paso")
+    resumen = st.empty()
+    resumen.caption("AnalyKid está trabajando: cada paso muestra la cadena de pensamiento del modelo y, "
+                    "por cada tool, la invocación, los parámetros y el resultado.")
+    emitidos = render_recorrido(eventos, turno, vivo, desplegado)
     n = sum(e["tipo"] == "llamada" for e in emitidos)
-    recorrido.update(label=f"Recorrido del agente · {n} herramienta(s)"
-                     + (f" · {turno.errores} con error" if turno.errores else ""),
-                     state="error" if turno.errores else "complete", expanded=False)
+    resumen.caption(f"{turno.pasos} paso(s) · {n} llamada(s) a tools"
+                    + (f" · {turno.errores} con error" if turno.errores else "")
+                    + ". En cada paso: cadena de pensamiento, invocación, parámetros y resultado.")
     with respuesta:
-        for pos, texto in turno.textos:
-            if pos > turno.ultima_llamada:
+        finales = [texto for pos, texto in turno.textos if pos > turno.ultima_llamada]
+        if finales:
+            _seccion("Respuesta final")
+            for texto in finales:
                 st.markdown(texto)
     with panel:
         render_panel(turno, perfil, clave)
@@ -401,7 +528,7 @@ def perfil_de(preguntas: list[str]) -> str | None:
 def render_sidebar() -> None:
     actual = st.session_state.config["configurable"]["thread_id"]
     with st.sidebar:
-        st.markdown("## 🌧️ AnalyKid")
+        st.logo(str(LOGO), size="large")
         with st.form("finca"):
             st.markdown("**Nueva consulta**")
             claves = list(LOCALIDADES)
@@ -419,7 +546,7 @@ def render_sidebar() -> None:
                     f"para los próximos {dias} días")
 
         st.markdown("**Conversaciones**")
-        if st.button("➕ Nueva conversación", disabled=not st.session_state.historial, width="stretch"):
+        if st.button("Nueva conversación", disabled=not st.session_state.historial, width="stretch"):
             init_session(new_thread())
             st.rerun()
         for thread_id, titulo in list_threads():
@@ -458,9 +585,10 @@ def mensaje_de_error(e: Exception) -> str:
 if "config" not in st.session_state:
     init_session(resume_thread())
 
-st.markdown('<div class="ak-hero"><h1>🌧️ AnalyKid</h1>'
-            "<p>Planes de contingencia ante el riesgo hídrico y climático en Mendoza · El Niño 2026-2027</p></div>",
-            unsafe_allow_html=True)
+_logo = base64.b64encode(LOGO.read_bytes()).decode()
+st.markdown(f'<div class="ak-hero"><img src="data:image/svg+xml;base64,{_logo}" alt="">'
+            "<div><h1>AnalyKid</h1><p>Planes de contingencia ante el riesgo hídrico y climático "
+            "en Mendoza · El Niño 2026-2027</p></div></div>", unsafe_allow_html=True)
 render_sidebar()
 
 historial = st.session_state.historial
@@ -469,20 +597,22 @@ if not historial and "pendiente" not in st.session_state:
 
 # Streamlit re-ejecuta todo el script en cada interacción: se redibuja el historial guardado.
 for n, (pregunta, eventos) in enumerate(historial, 1):
-    st.chat_message("user").markdown(pregunta)
-    with st.chat_message("assistant", avatar="🌧️"):
-        render_turno(eventos, perfil_de([p for p, _ in historial[:n]]), f"t{n}", vivo=False)
+    st.chat_message("user", avatar=":material/person:").markdown(pregunta)
+    with st.chat_message("assistant", avatar=ICONO):
+        # El recorrido del último turno queda desplegado; los anteriores, plegados.
+        render_turno(eventos, perfil_de([p for p, _ in historial[:n]]), f"t{n}", vivo=False,
+                     desplegado=n == len(historial))
 
 prompt = st.chat_input("Escribí tu consulta o un cambio («¿y si la finca estuviera en San Rafael?»)")
 prompt = prompt or st.session_state.pop("pendiente", None)
 if prompt:
     turno = len(historial) + 1
-    st.chat_message("user").markdown(prompt)
-    with st.chat_message("assistant", avatar="🌧️"):
+    st.chat_message("user", avatar=":material/person:").markdown(prompt)
+    with st.chat_message("assistant", avatar=ICONO):
         try:
             perfil = perfil_de([p for p, _ in historial] + [prompt])
             eventos = render_turno(stream_turn(prompt, st.session_state.config, turno),
-                                   perfil, f"t{turno}", vivo=True)
+                                   perfil, f"t{turno}", vivo=True, desplegado=True)
         except Exception as e:
             st.error(mensaje_de_error(e))
             st.stop()
