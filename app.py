@@ -22,7 +22,7 @@ from tools.risk import evaluar, nivel_maximo
 
 DIR = Path(__file__).parent
 LOGO = DIR / "assets" / "analykid-logo.svg"
-ICONO = str(DIR / "assets" / "analykid-logo.png")   # pestaña del navegador y avatar del chat
+ICONO = str(DIR / "assets" / "analykid-logo.png")   # pestaña del navegador
 
 st.set_page_config(page_title="AnalyKid", page_icon=ICONO, layout="wide")
 
@@ -70,7 +70,26 @@ st.markdown("""
 :root {--ak-navy: #0B1F5C; --ak-azul: #1226B4; --ak-tinta: #1A1D26; --ak-gris: #6B7280;
   --ak-hilo: #D9DEEA; --ak-fondo: #F3F5FB;
   --ak-verde: #1F8A4C; --ak-amarillo: #D9A400; --ak-naranja: #E36A00; --ak-rojo: #C1272D;}
-.block-container {padding-top: 1.6rem; max-width: 1200px;}
+/* Sin ancho máximo: con uno, el bloque se centra y el encabezado queda en el medio. */
+[data-testid="stMainBlockContainer"].block-container {padding-top: 1rem !important;
+  max-width: none !important; margin-left: 0 !important;}
+.ak-hero {justify-content: flex-start; text-align: left;}
+.ak-hero p {font-size: 1.05rem;}
+/* La franja superior de Streamlit se pinta de blanco al plegar la barra y tapa el encabezado:
+   transparente y sin capturar clics, salvo sus botones (desplegar la barra, menú). */
+[data-testid="stHeader"] {background: transparent !important; pointer-events: none;}
+[data-testid="stHeader"] button, [data-testid="stHeader"] a {pointer-events: auto;}
+/* Nombre de la app arriba a la izquierda de la barra lateral. */
+[data-testid="stSidebarUserContent"] {padding-top: 0 !important;}
+.ak-marca {color: var(--ak-navy); font-size: 1.6rem; font-weight: 600; letter-spacing: -.01em;
+  margin: -2.6rem 0 .6rem; line-height: 1.2;}
+/* Inicio sin conversación: bienvenida y caja de texto al centro de la pantalla, como un chat. */
+.st-key-ak-inicio {min-height: 62vh; justify-content: center; max-width: 780px; margin: 0 auto;}
+.st-key-ak-inicio h4 {text-align: center; color: var(--ak-navy);}
+/* Mensaje de la persona: burbuja a la izquierda con el azul marino de la marca. */
+.ak-burbuja {background: var(--ak-navy); color: #fff; border-radius: 16px 16px 16px 4px;
+  padding: 10px 16px; max-width: min(70%, 640px); width: fit-content; margin: 14px 0 10px;
+  line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere;}
 .ak-hero {display: flex; align-items: center; gap: 16px; padding: 2px 0 14px;
   border-bottom: 1.5px solid var(--ak-navy); margin-bottom: 18px;}
 .ak-hero img {height: 52px;}
@@ -116,6 +135,23 @@ st.markdown("""
 .ak-estado.ak-ok {color: var(--ak-verde); border: 1px solid var(--ak-verde);}
 .ak-estado.ak-error {color: var(--ak-rojo); border: 1px solid var(--ak-rojo);}
 .ak-estado.ak-espera {color: var(--ak-gris); border: 1px solid var(--ak-hilo);}
+/* Mientras un paso del recorrido corre, su título brilla de izquierda a derecha. */
+@keyframes ak-brillo {from {background-position: 200% 0;} to {background-position: -200% 0;}}
+[class*="st-key-ak-recorrido"] summary:has([data-testid="stExpanderIconSpinner"]) p {
+  background: linear-gradient(90deg, var(--ak-gris) 30%, var(--ak-azul) 50%, var(--ak-gris) 70%);
+  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
+  color: transparent; animation: ak-brillo 2.2s linear infinite;}
+/* Barra lateral: conversaciones como lista de texto, sin caja; la actual, resaltada. */
+[class*="st-key-ak-lista"] button {justify-content: flex-start; padding: 6px 10px;
+  border-radius: 8px; color: var(--ak-tinta); min-height: 0;}
+[class*="st-key-ak-lista"] button > div {justify-content: flex-start; min-width: 0;}
+[class*="st-key-ak-lista"] button p {white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: left; font-size: .9rem;}
+[class*="st-key-ak-lista"] button:hover {background: rgba(11, 31, 92, .07); color: var(--ak-navy);}
+.st-key-ak-lista-conversaciones button:disabled {background: rgba(11, 31, 92, .10);
+  color: var(--ak-navy); opacity: 1; cursor: default;}
+.st-key-ak-lista-conversaciones button:disabled p {font-weight: 600;}
+.st-key-ak-lista-nueva button p {font-weight: 600;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -169,12 +205,13 @@ class Paso:
     modelo vuelve a responder.
     """
 
-    def __init__(self, n: int, vivo: bool, desplegado: bool):
-        self.n, self.desplegado = n, desplegado
+    def __init__(self, n: int, vivo: bool):
+        self.n = n
         self.nombres: list[str] = []
         self.errores = 0
         self.con_pensamiento = False
-        self.caja = st.status(f"Paso {n}", expanded=desplegado, state="running" if vivo else "complete")
+        # Plegado siempre: el detalle se abre a demanda, como el razonamiento de un chat.
+        self.caja = st.status(f"Paso {n}", expanded=False, state="running" if vivo else "complete")
 
     def pensamiento(self) -> None:
         """Encabezado de la cadena de pensamiento, una sola vez por paso."""
@@ -191,7 +228,7 @@ class Paso:
             detalle = "respuesta del modelo, sin tools"
         if self.errores:
             detalle += f" · {self.errores} con error"
-        self.caja.update(label=f"Paso {self.n} · {detalle}", expanded=self.desplegado,
+        self.caja.update(label=f"Paso {self.n} · {detalle}",
                          state="error" if self.errores else "complete")
 
 
@@ -218,7 +255,7 @@ def _invocacion(paso: Paso, e: dict) -> dict:
     return {"llamada": e, "paso": paso, "titulo": titulo, "cuerpo": cuerpo}
 
 
-def render_recorrido(eventos, turno: Turno, vivo: bool, desplegado: bool) -> list[dict]:
+def render_recorrido(eventos, turno: Turno, vivo: bool) -> list[dict]:
     """Dibuja el recorrido a medida que llegan los eventos. Devuelve los eventos dibujados.
 
     Cada respuesta del modelo abre un paso: primero su cadena de pensamiento (el
@@ -237,7 +274,7 @@ def render_recorrido(eventos, turno: Turno, vivo: bool, desplegado: bool) -> lis
             if paso:
                 paso.cerrar()
             turno.pasos += 1
-            paso = Paso(turno.pasos, vivo, desplegado)
+            paso = Paso(turno.pasos, vivo)
         anterior = tipo
         if tipo == "resultado":
             hueco = pendientes.pop(e["id"])
@@ -278,7 +315,7 @@ def render_recorrido(eventos, turno: Turno, vivo: bool, desplegado: bool) -> lis
     # La respuesta final (texto posterior a la última tool) se muestra fuera del recorrido.
     for pos, _ in turno.textos:
         if pos > turno.ultima_llamada:
-            finales[pos].caption("Es la respuesta final: se muestra arriba, fuera del recorrido.")
+            finales[pos].caption("Es la respuesta final: se muestra abajo, fuera del recorrido.")
     return emitidos
 
 
@@ -484,32 +521,29 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
 
 # --- Un turno completo ---------------------------------------------------------------
 
-def render_turno(eventos, perfil: str | None, clave: str, vivo: bool, desplegado: bool) -> list[dict]:
-    """Panel arriba, respuesta final en el medio y recorrido abajo. Sirve en vivo y para el historial.
+def render_turno(eventos, perfil: str | None, clave: str, vivo: bool) -> list[dict]:
+    """Recorrido plegado arriba y, debajo, el panel y la respuesta final. Sirve en vivo y para el historial.
 
-    El panel y la respuesta se crean primero (vacíos) y se llenan al final, cuando ya llegaron
-    todos los datos: mientras el agente trabaja, lo único a la vista es el recorrido.
+    Mientras el agente trabaja solo se ve «Armando plan de contingencia…» con su animación;
+    los pasos quedan adentro, plegados, y se abren a demanda. Al terminar el bloque pasa a
+    resumir el recorrido y el resultado aparece debajo.
     """
-    panel = st.container()
-    respuesta = st.container()
     turno = Turno()
-    _seccion("Recorrido del agente, paso a paso")
-    resumen = st.empty()
-    resumen.caption("AnalyKid está trabajando: cada paso muestra la cadena de pensamiento del modelo y, "
-                    "por cada tool, la invocación, los parámetros y el resultado.")
-    emitidos = render_recorrido(eventos, turno, vivo, desplegado)
-    n = sum(e["tipo"] == "llamada" for e in emitidos)
-    resumen.caption(f"{turno.pasos} paso(s) · {n} llamada(s) a tools"
-                    + (f" · {turno.errores} con error" if turno.errores else "")
-                    + ". En cada paso: cadena de pensamiento, invocación, parámetros y resultado.")
-    with respuesta:
-        finales = [texto for pos, texto in turno.textos if pos > turno.ultima_llamada]
-        if finales:
-            _seccion("Respuesta final")
-            for texto in finales:
-                st.markdown(texto)
-    with panel:
-        render_panel(turno, perfil, clave)
+    with st.container(key=f"ak-recorrido-{clave}"):
+        caja = st.status("Armando plan de contingencia…", expanded=False,
+                         state="running" if vivo else "complete")
+        with caja:
+            st.caption("Cada paso es una respuesta del modelo: su cadena de pensamiento y, por cada "
+                       "tool, la invocación, los parámetros y el resultado.")
+            emitidos = render_recorrido(eventos, turno, vivo)
+        n = sum(e["tipo"] == "llamada" for e in emitidos)
+        caja.update(label=f"Recorrido del agente · {turno.pasos} paso(s) · {n} llamada(s) a tools"
+                    + (f" · {turno.errores} con error" if turno.errores else ""), state="complete")
+    render_panel(turno, perfil, clave)
+    if finales := [texto for pos, texto in turno.textos if pos > turno.ultima_llamada]:
+        _seccion("Respuesta final")
+        for texto in finales:
+            st.markdown(texto)
     return emitidos
 
 
@@ -528,7 +562,7 @@ def perfil_de(preguntas: list[str]) -> str | None:
 def render_sidebar() -> None:
     actual = st.session_state.config["configurable"]["thread_id"]
     with st.sidebar:
-        st.logo(str(LOGO), size="large")
+        st.markdown('<div class="ak-marca">AnalyKid</div>', unsafe_allow_html=True)
         with st.form("finca"):
             st.markdown("**Nueva consulta**")
             claves = list(LOCALIDADES)
@@ -545,14 +579,19 @@ def render_sidebar() -> None:
                     f"Armame el plan de contingencia para {finca} en {LOCALIDADES[localidad]['nombre']} "
                     f"para los próximos {dias} días")
 
-        st.markdown("**Conversaciones**")
-        if st.button("Nueva conversación", disabled=not st.session_state.historial, width="stretch"):
-            init_session(new_thread())
-            st.rerun()
-        for thread_id, titulo in list_threads():
-            if st.button(titulo, key=thread_id, disabled=thread_id == actual, width="stretch"):
-                init_session(select_thread(thread_id))
+        # Lista de texto plano sobre el fondo de la barra, como en los chats de IA (ver CSS ak-lista).
+        with st.container(key="ak-lista-nueva"):
+            if st.button("Nueva conversación", icon=":material/edit_square:", type="tertiary",
+                         disabled=not st.session_state.historial, width="stretch"):
+                init_session(new_thread())
                 st.rerun()
+        st.markdown('<div class="ak-etiqueta">Conversaciones</div>', unsafe_allow_html=True)
+        with st.container(key="ak-lista-conversaciones", gap=None):
+            for thread_id, titulo in list_threads():
+                if st.button(titulo, key=thread_id, type="tertiary", disabled=thread_id == actual,
+                             width="stretch"):
+                    init_session(select_thread(thread_id))
+                    st.rerun()
         st.divider()
         st.caption(f"Modelo: {MODELO}")
         st.caption("Este informe no reemplaza las alertas oficiales del SMN ni las indicaciones de Defensa Civil.")
@@ -563,7 +602,8 @@ def render_bienvenida() -> None:
     st.markdown(
         "Arma un **plan de contingencia en PDF** para una finca o zona de Mendoza: consulta El Niño, "
         "el pronóstico, el caudal del río y las alertas oficiales, evalúa el riesgo de cinco amenazas "
-        "y propone medidas con cita. Completá el formulario de la izquierda o probá un ejemplo:")
+        "y propone medidas con cita. Escribí tu consulta, completá el formulario de la izquierda "
+        "o probá un ejemplo:")
     for col, (titulo, texto) in zip(st.columns(len(EJEMPLOS)), EJEMPLOS):
         if col.button(titulo, width="stretch"):
             st.session_state.pendiente = texto
@@ -585,34 +625,47 @@ def mensaje_de_error(e: Exception) -> str:
 if "config" not in st.session_state:
     init_session(resume_thread())
 
+# El nombre va arriba de la barra lateral; acá, el logo con la bajada.
 _logo = base64.b64encode(LOGO.read_bytes()).decode()
-st.markdown(f'<div class="ak-hero"><img src="data:image/svg+xml;base64,{_logo}" alt="">'
-            "<div><h1>AnalyKid</h1><p>Planes de contingencia ante el riesgo hídrico y climático "
-            "en Mendoza · El Niño 2026-2027</p></div></div>", unsafe_allow_html=True)
+st.markdown(f'<div class="ak-hero"><img src="data:image/svg+xml;base64,{_logo}" alt="AnalyKid">'
+            "<div><p>Planes de contingencia ante el riesgo hídrico y climático en Mendoza · El Niño 2026-2027</p></div></div>", unsafe_allow_html=True)
 render_sidebar()
 
 historial = st.session_state.historial
+PLACEHOLDER = "Escribí tu consulta o un cambio («¿y si la finca estuviera en San Rafael?»)"
+
+
+def _burbuja(texto: str) -> None:
+    st.markdown(f'<div class="ak-burbuja">{html.escape(texto)}</div>', unsafe_allow_html=True)
+
+
 if not historial and "pendiente" not in st.session_state:
-    render_bienvenida()
+    # Pantalla de inicio: la caja de texto va dentro del contenedor, al centro. Al enviar, el
+    # pedido pasa por `pendiente` y en la vuelta siguiente la caja ya queda abajo, como en un chat.
+    with st.container(key="ak-inicio"):
+        render_bienvenida()
+        if inicial := st.chat_input(PLACEHOLDER, key="ak-input-inicio"):
+            st.session_state.pendiente = inicial
+            st.rerun()
+    st.stop()
 
 # Streamlit re-ejecuta todo el script en cada interacción: se redibuja el historial guardado.
+# Las respuestas del agente van sin avatar: el resultado ocupa todo el ancho.
 for n, (pregunta, eventos) in enumerate(historial, 1):
-    st.chat_message("user", avatar=":material/person:").markdown(pregunta)
-    with st.chat_message("assistant", avatar=ICONO):
-        # El recorrido del último turno queda desplegado; los anteriores, plegados.
-        render_turno(eventos, perfil_de([p for p, _ in historial[:n]]), f"t{n}", vivo=False,
-                     desplegado=n == len(historial))
+    _burbuja(pregunta)
+    with st.container():
+        render_turno(eventos, perfil_de([p for p, _ in historial[:n]]), f"t{n}", vivo=False)
 
-prompt = st.chat_input("Escribí tu consulta o un cambio («¿y si la finca estuviera en San Rafael?»)")
+prompt = st.chat_input(PLACEHOLDER)
 prompt = prompt or st.session_state.pop("pendiente", None)
 if prompt:
     turno = len(historial) + 1
-    st.chat_message("user", avatar=":material/person:").markdown(prompt)
-    with st.chat_message("assistant", avatar=ICONO):
+    _burbuja(prompt)
+    with st.container():
         try:
             perfil = perfil_de([p for p, _ in historial] + [prompt])
             eventos = render_turno(stream_turn(prompt, st.session_state.config, turno),
-                                   perfil, f"t{turno}", vivo=True, desplegado=True)
+                                   perfil, f"t{turno}", vivo=True)
         except Exception as e:
             st.error(mensaje_de_error(e))
             st.stop()
