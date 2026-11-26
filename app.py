@@ -141,6 +141,11 @@ st.markdown("""
   background: linear-gradient(90deg, var(--ak-gris) 30%, var(--ak-azul) 50%, var(--ak-gris) 70%);
   background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
   color: transparent; animation: ak-brillo 2.2s linear infinite;}
+/* El mapa capturaba la rueda del mouse (zoom) y la página dejaba de scrollear al pasar por
+   encima: queda fijo, con los botones + / − para el zoom. */
+[data-testid="stDeckGlJsonChart"] {pointer-events: none;}
+[data-testid="stDeckGlJsonChartZoomButton"], [data-testid="stDeckGlJsonChartZoomButton"] * {
+  pointer-events: auto;}
 /* Barra lateral: conversaciones como lista de texto, sin caja; la actual, resaltada. */
 [class*="st-key-ak-lista"] button {justify-content: flex-start; padding: 6px 10px;
   border-radius: 8px; color: var(--ak-tinta); min-height: 0;}

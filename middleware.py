@@ -3,7 +3,8 @@
 Flash Lite a veces termina un mensaje anunciando una consulta («Voy a consultar…») sin hacer
 las llamadas, y el turno se corta sin informe (pasó 2 de 6 veces en las pruebas, con la misma
 entrada). Si el modelo termina así, sin PDF todavía y sin estar preguntándole algo al usuario,
-se agrega un recordatorio y se vuelve al modelo, hasta 2 veces por turno. El recordatorio queda
+se agrega un recordatorio y se vuelve al modelo, hasta 2 veces seguidas sin que ninguna tool
+devuelva un resultado (cada resultado reinicia la cuenta). El recordatorio queda
 en el historial marcado como interno y la UI no lo muestra.
 """
 import re
@@ -33,7 +34,12 @@ def necesita_recordatorio(mensajes: list) -> bool:
     turno = mensajes[inicio + 1:]
     if any(m.type == "tool" and str(m.content).startswith("PDF creado") for m in turno):
         return False
-    return sum(es_recordatorio(m) for m in turno) < MAX_RECORDATORIOS
+    # El tope es por tramo sin avance, no por turno: el modelo puede anunciar antes de cada paso
+    # (datos, evaluación, RAG, informe) y con un tope de 2 por turno se cortaba en el tercero.
+    # Cada resultado de una tool es avance y reinicia la cuenta; lo que corta el bucle es que
+    # anuncie dos veces seguidas sin llamar a nada.
+    ultimo_avance = max((i for i, m in enumerate(turno) if m.type == "tool"), default=-1)
+    return sum(es_recordatorio(m) for m in turno[ultimo_avance + 1:]) < MAX_RECORDATORIOS
 
 
 @after_model(can_jump_to=["model"])

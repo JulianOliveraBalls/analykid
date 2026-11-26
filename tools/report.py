@@ -186,6 +186,29 @@ def _escapar(texto: str) -> str:
     }))
 
 
+# Tramos donde `&` tiene sentido y no se toca: tablas (separa columnas) y \url{} (va literal).
+_CON_AMPERSAND = re.compile(r"\\url\{[^}]*\}|\\(begin|end)\{(?:tabular\*?|tabularx|longtable|array|align\*?)\}")
+
+
+def escapar_ampersands(cuerpo: str) -> str:
+    r"""Escapa los `&` sueltos fuera de tablas y de \url{}.
+
+    El modelo copia nombres de las fuentes como «Texas A&M» sin escapar, aunque la skill de
+    LaTeX lo pide, y la compilación fallaba siempre por eso. Se corrige acá en vez de gastar
+    un reintento.
+    """
+    partes, abiertas, desde = [], 0, 0
+    for m in _CON_AMPERSAND.finditer(cuerpo):
+        tramo = cuerpo[desde:m.start()]
+        partes += [tramo if abiertas else re.sub(r"(?<!\\)&", r"\\&", tramo), m.group(0)]
+        if m.group(1):
+            abiertas = max(0, abiertas + (1 if m.group(1) == "begin" else -1))
+        desde = m.end()
+    tramo = cuerpo[desde:]
+    partes.append(tramo if abiertas else re.sub(r"(?<!\\)&", r"\\&", tramo))
+    return "".join(partes)
+
+
 def armar_tex(titulo: str, cuerpo: str) -> str:
     return PLANTILLA.replace("<<TITULO>>", _escapar(titulo)).replace("<<CUERPO>>", cuerpo)
 
@@ -237,6 +260,7 @@ def create_pdf(titulo: str, cuerpo: str, runtime: ToolRuntime[Context]) -> Comma
             "create_pdf", "no se encontró Tectonic",
             "No reintentes: entregá el informe en markdown y avisá que falta TECTONIC_PATH."))
 
+    cuerpo = escapar_ampersands(cuerpo)   # después de validar: el semáforo se busca con su `&`
     titulo = " ".join(titulo.split())
     ascii_titulo = unicodedata.normalize("NFKD", titulo).encode("ascii", "ignore").decode()
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_titulo.lower()).strip("-")[:40] or "informe"

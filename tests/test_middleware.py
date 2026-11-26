@@ -33,9 +33,18 @@ def test_no_interviene_si_hay_llamadas_pregunta_o_respuesta_final():
     assert not necesita_recordatorio([PEDIDO, AIMessage("No pude generar el PDF.")])
 
 
-def test_maximo_dos_recordatorios_por_turno():
+def test_maximo_dos_recordatorios_seguidos_sin_avance():
     assert necesita_recordatorio([PEDIDO, ANUNCIO, _recordatorio(), ANUNCIO])
     assert not necesita_recordatorio([PEDIDO, ANUNCIO, _recordatorio(), ANUNCIO, _recordatorio(), ANUNCIO])
+
+
+def test_cada_resultado_de_tool_reinicia_la_cuenta():
+    # Lo que pasó en la demo: anuncia antes de cada paso y se cortaba en el tercero.
+    def paso(id_, nombre):
+        return [ANUNCIO, _recordatorio(), AIMessage("", tool_calls=[{"id": id_, "name": nombre, "args": {}}]),
+                ToolMessage("ok", tool_call_id=id_)]
+    mensajes = [PEDIDO, *paso("w", "get_weather_forecast"), *paso("r", "evaluate_risk"), ANUNCIO]
+    assert necesita_recordatorio(mensajes)
 
 
 def test_el_recordatorio_no_corta_el_turno_al_leer_resultados():
