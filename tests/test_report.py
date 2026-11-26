@@ -43,6 +43,18 @@ def test_ejemplo_de_la_skill_pasa_el_control_de_contenido():
     assert report.validar(_ejemplo(), riesgo) == []
 
 
+def test_etiqueta_acepta_la_fecha_sin_hoy():
+    riesgo = {"amenazas": [], "ventanas": {"Pluvial": {"antes": "hoy, 20/11", "durante": "21/11",
+                                                       "despues": "22/11 al 24/11"}}}
+    con_hoy = "\\section{Medidas por amenaza}\n\\subsection{Pluvial}\n\\textbf{Antes (hoy, 20/11):}"
+    sin_hoy = con_hoy.replace("hoy, ", "")
+    otra = con_hoy.replace("hoy, 20/11", "19/11")
+    falta = "falta «Antes (hoy, 20/11)»"
+    assert not any(falta in p for p in report.validar(con_hoy, riesgo))
+    assert not any(falta in p for p in report.validar(sin_hoy, riesgo))
+    assert any(falta in p for p in report.validar(otra, riesgo))
+
+
 def test_las_skills_no_superan_el_limite_de_load_skill():
     from tools.knowledge import MAX_SKILL, SKILLS_DIR
     for skill in SKILLS_DIR.glob("*.md"):

@@ -172,7 +172,9 @@ def validar(cuerpo: str, riesgo: dict) -> list[str]:
     for nombre, v in riesgo.get("ventanas", {}).items():
         apartado = _subseccion(medidas, nombre)
         for etiqueta, clave in (("Antes", "antes"), ("Durante", "durante"), ("Después", "despues")):
-            if f"{etiqueta} ({v[clave]})" not in apartado:
+            # «hoy, 26/11» y «26/11» son la misma fecha: el modelo suele omitir el «hoy».
+            fechas = {v[clave], v[clave].replace("hoy, ", "")}
+            if not any(f"{etiqueta} ({f})" in apartado for f in fechas):
                 problemas.append(f"Medidas de {nombre}: falta «{etiqueta} ({v[clave]})»")
         problemas += _problemas_de_medidas(nombre, apartado)
     verdes = [a["amenaza"] for a in riesgo["amenazas"] if a["nivel"] == "verde"]
@@ -281,6 +283,14 @@ def create_pdf(titulo: str, cuerpo: str, runtime: ToolRuntime[Context]) -> Comma
     herramienta agrega el preámbulo, el título y la fecha. Antes de escribirlo,
     cargá las skills «latex» e «informe_riesgo». Si la compilación falla,
     devuelve el error: corregí el cuerpo y reintentá (máximo 3 intentos).
+
+    Antes de compilar se controla, y si no se cumple se rechaza: en cada amenaza
+    amarilla o más, las etiquetas Antes/Durante/Después con las fechas de
+    evaluate_risk copiadas tal cual; al menos 2 medidas en Antes, 1 en Durante y
+    2 en Después, cada una un \item de 80 caracteres o más (qué hacer, cómo, qué
+    mirar y dónde) con su cita [Documento — Sección]. Si el RAG trajo pocas
+    medidas para una amenaza, desarrollá en dos \item distintos lo que dice el
+    fragmento citado antes que dejar un bloque con una sola.
     """
     prohibido = next((p for p in PROHIBIDO if p in cuerpo), None)
     if prohibido:
