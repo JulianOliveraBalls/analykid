@@ -1,12 +1,18 @@
 """Informe: compila el PDF con Tectonic sobre una plantilla fija."""
+import hashlib
+import io
 import os
+import platform
 import re
 import shutil
 import subprocess
+import sys
+import tarfile
 import unicodedata
 from pathlib import Path
 from uuid import uuid4
 
+import requests
 from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 
@@ -14,6 +20,12 @@ from tools.common import BASE_DIR, Context, error, respond, resultados_del_turno
 
 OUTPUT_DIR = BASE_DIR / "output"
 TIMEOUT_S = 180   # la primera compilación descarga paquetes y puede tardar
+# En un servidor Linux sin Tectonic (Streamlit Community Cloud) se baja este release fijo y se
+# verifica el hash antes de ejecutarlo: ni la URL ni el binario dependen de nada externo al código.
+TECTONIC_LINUX_URL = ("https://github.com/tectonic-typesetting/tectonic/releases/download/"
+                      "tectonic%400.17.0/tectonic-0.17.0-x86_64-unknown-linux-musl.tar.gz")
+TECTONIC_LINUX_SHA256 = "8533d07f9ccbd7a65824b9e0459041bca34af1eb33daba48f59215593753a3b7"
+TECTONIC_LINUX_DIR = Path.home() / ".cache" / "analykid"
 
 # El modelo escribe solo el cuerpo; el preámbulo es fijo y sabemos que compila.
 PLANTILLA = r"""\documentclass[11pt]{article}
@@ -186,8 +198,28 @@ def validar(cuerpo: str, riesgo: dict) -> list[str]:
 
 def _tectonic() -> str | None:
     """Ruta absoluta de Tectonic. Nada de lo que escriba el modelo decide qué se ejecuta."""
-    ruta = shutil.which(os.getenv("TECTONIC_PATH", "tectonic"))
+    ruta = shutil.which(os.getenv("TECTONIC_PATH", "tectonic")) or _instalar_tectonic_linux()
     return str(Path(ruta).resolve()) if ruta else None
+
+
+def _instalar_tectonic_linux() -> str | None:
+    """Baja Tectonic en Linux x86_64 si no está, verificando el SHA-256. None si no aplica o falla."""
+    if not (sys.platform.startswith("linux") and platform.machine() == "x86_64"):
+        return None
+    binario = TECTONIC_LINUX_DIR / "tectonic"
+    if binario.exists():
+        return str(binario)
+    try:
+        datos = requests.get(TECTONIC_LINUX_URL, timeout=120).content
+    except requests.RequestException:
+        return None
+    if hashlib.sha256(datos).hexdigest() != TECTONIC_LINUX_SHA256:
+        return None
+    TECTONIC_LINUX_DIR.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(fileobj=io.BytesIO(datos)) as tar:
+        binario.write_bytes(tar.extractfile("tectonic").read())
+    binario.chmod(0o755)
+    return str(binario)
 
 
 def _escapar(texto: str) -> str:
@@ -197,6 +229,29 @@ def _escapar(texto: str) -> str:
         "_": r"\_", "{": r"\{", "}": r"\}", "~": r"\textasciitilde{}",
         "^": r"\textasciicircum{}",
     }))
+
+
+# Tramos donde `&` tiene sentido y no se toca: tablas (separa columnas) y \url{} (va literal).
+_CON_AMPERSAND = re.compile(r"\\url\{[^}]*\}|\\(begin|end)\{(?:tabular\*?|tabularx|longtable|array|align\*?)\}")
+
+
+def escapar_ampersands(cuerpo: str) -> str:
+    r"""Escapa los `&` sueltos fuera de tablas y de \url{}.
+
+    El modelo copia nombres de las fuentes como «Texas A&M» sin escapar, aunque la skill de
+    LaTeX lo pide, y la compilación fallaba siempre por eso. Se corrige acá en vez de gastar
+    un reintento.
+    """
+    partes, abiertas, desde = [], 0, 0
+    for m in _CON_AMPERSAND.finditer(cuerpo):
+        tramo = cuerpo[desde:m.start()]
+        partes += [tramo if abiertas else re.sub(r"(?<!\\)&", r"\\&", tramo), m.group(0)]
+        if m.group(1):
+            abiertas = max(0, abiertas + (1 if m.group(1) == "begin" else -1))
+        desde = m.end()
+    tramo = cuerpo[desde:]
+    partes.append(tramo if abiertas else re.sub(r"(?<!\\)&", r"\\&", tramo))
+    return "".join(partes)
 
 
 def armar_tex(titulo: str, cuerpo: str) -> str:
@@ -250,6 +305,7 @@ def create_pdf(titulo: str, cuerpo: str, runtime: ToolRuntime[Context]) -> Comma
             "create_pdf", "no se encontró Tectonic",
             "No reintentes: entregá el informe en markdown y avisá que falta TECTONIC_PATH."))
 
+    cuerpo = escapar_ampersands(cuerpo)   # después de validar: el semáforo se busca con su `&`
     titulo = " ".join(titulo.split())
     ascii_titulo = unicodedata.normalize("NFKD", titulo).encode("ascii", "ignore").decode()
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_titulo.lower()).strip("-")[:40] or "informe"

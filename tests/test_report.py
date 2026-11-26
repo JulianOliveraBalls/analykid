@@ -47,3 +47,19 @@ def test_las_skills_no_superan_el_limite_de_load_skill():
     from tools.knowledge import MAX_SKILL, SKILLS_DIR
     for skill in SKILLS_DIR.glob("*.md"):
         assert len(skill.read_text(encoding="utf-8")) <= MAX_SKILL, skill.name
+
+
+def test_escapar_ampersands_fuera_de_tablas():
+    cuerpo = (r"\section{Fuentes} Corpus (Texas A&M, AWRI)." "\n"
+              r"\begin{tabular}{ll} A & B \\ \end{tabular}" "\n"
+              r"Ya escapado: A\&M. \url{https://x.org/?a=1&b=2}")
+    salida = report.escapar_ampersands(cuerpo)
+    assert r"Texas A\&M" in salida
+    assert "A & B" in salida
+    assert r"A\&M." in salida and r"\\&" not in salida
+    assert "a=1&b=2" in salida
+
+
+def test_escapar_ampersands_despues_de_longtable():
+    cuerpo = r"\begin{longtable}{ll} x & y \\ \end{longtable} P&G"
+    assert report.escapar_ampersands(cuerpo) == r"\begin{longtable}{ll} x & y \\ \end{longtable} P\&G"
