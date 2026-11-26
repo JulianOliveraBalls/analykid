@@ -11,6 +11,7 @@ Ejecutar con:  streamlit run app.py
 import base64
 import html
 import json
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -26,12 +27,19 @@ ICONO = str(DIR / "assets" / "analykid-logo.png")   # pestaña del navegador
 
 st.set_page_config(page_title="AnalyKid", page_icon=ICONO, layout="wide")
 
+# En Streamlit Community Cloud las keys llegan como Secrets, que Streamlit pasa al entorno recién
+# cuando alguien lee st.secrets; model.py las busca al importarse, así que se copian antes.
+if st.secrets.load_if_toml_exists():
+    for _clave, _valor in st.secrets.items():
+        if isinstance(_valor, str):
+            os.environ.setdefault(_clave, _valor)
+
 try:
     from agente import (
         MODELO, list_threads, new_thread, resume_thread, saved_turns, select_thread, stream_turn,
     )
 except RuntimeError as e:  # por ejemplo, faltan API keys en el .env
-    st.error(str(e))
+    st.error(f"{e} En Streamlit Community Cloud se cargan en Settings → Secrets.")
     st.stop()
 
 
