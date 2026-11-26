@@ -86,9 +86,9 @@ st.markdown("""
 /* Inicio sin conversación: bienvenida y caja de texto al centro de la pantalla, como un chat. */
 .st-key-ak-inicio {min-height: 62vh; justify-content: center; max-width: 780px; margin: 0 auto;}
 .st-key-ak-inicio h4 {text-align: center; color: var(--ak-navy);}
-/* Mensaje de la persona: burbuja a la izquierda con el azul marino de la marca. */
-.ak-burbuja {background: var(--ak-navy); color: #fff; border-radius: 16px 16px 16px 4px;
-  padding: 10px 16px; max-width: min(70%, 640px); width: fit-content; margin: 14px 0 10px;
+/* Mensaje de la persona: burbuja a la derecha con el azul marino de la marca, como en un chat. */
+.ak-burbuja {background: var(--ak-navy); color: #fff; border-radius: 16px 16px 4px 16px;
+  padding: 10px 16px; max-width: min(60%, 560px); width: fit-content; margin: 14px 0 10px auto;
   line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere;}
 .ak-hero {display: flex; align-items: center; gap: 16px; padding: 2px 0 14px;
   border-bottom: 1.5px solid var(--ak-navy); margin-bottom: 18px;}
