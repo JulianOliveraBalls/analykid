@@ -16,6 +16,13 @@ def test_anuncio_sin_llamadas_pide_continuar():
     assert necesita_recordatorio([PEDIDO, ANUNCIO])
 
 
+def test_anuncio_en_futuro_sin_llamadas_pide_continuar():
+    for texto in ("Consultaré el pronóstico meteorológico, el caudal previsto del río y las alertas.",
+                  "Generaré el PDF del plan de contingencia.",
+                  "Evaluaremos el riesgo con los datos obtenidos."):
+        assert necesita_recordatorio([PEDIDO, AIMessage(texto)])
+
+
 def test_no_interviene_si_hay_llamadas_pregunta_o_respuesta_final():
     con_llamada = AIMessage("Voy a consultar.", tool_calls=[{"id": "a", "name": "get_enso_status", "args": {}}])
     assert not necesita_recordatorio([PEDIDO, con_llamada])

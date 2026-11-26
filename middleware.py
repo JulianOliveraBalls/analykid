@@ -14,7 +14,11 @@ from langchain.messages import HumanMessage
 from tools.common import AnalyKidState, es_recordatorio
 
 RECORDATORIO = "Continuá: hacé ahora, en este mensaje, las llamadas a las tools que anunciaste."
-ANUNCIO = re.compile(r"\b(voy a|vamos a|ahora (voy|consulto|busco|genero)|procedo)", re.IGNORECASE)
+# También el futuro en primera persona («Consultaré…», «Generaré…», «Evaluaremos…»): Flash Lite
+# lo usa seguido para anunciar y el turno se cortaba igual. Algunos pretéritos coinciden
+# («generé»), pero solo se interviene sin tools, sin PDF creado y hasta 2 veces: es inofensivo.
+ANUNCIO = re.compile(r"\b(voy a|vamos a|ahora (voy|consulto|busco|genero)|procedo"
+                     r"|\w+(aré|eré|iré|aremos|eremos|iremos))\b", re.IGNORECASE)
 MAX_RECORDATORIOS = 2
 
 
