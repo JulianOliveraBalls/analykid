@@ -34,6 +34,18 @@ except RuntimeError as e:  # por ejemplo, faltan API keys en el .env
     st.error(str(e))
     st.stop()
 
+
+@st.cache_resource(show_spinner="Preparando la base de conocimiento (solo la primera vez)…")
+def _preparar_rag() -> None:
+    """Arma la base vectorial si no existe: en la nube no se versiona y hay que ingestar al arrancar."""
+    from rag.store import DB_DIR
+    if not DB_DIR.exists():
+        from rag import ingest
+        ingest.main()
+
+
+_preparar_rag()
+
 LOCALIDADES = json.loads((DIR / "datos" / "localidades.json").read_text(encoding="utf-8"))["localidades"]
 RIOS = json.loads((DIR / "datos" / "rios.json").read_text(encoding="utf-8"))["rios"]
 OASIS = {"norte": "Norte", "este": "Este", "valle_de_uco": "Valle de Uco", "sur": "Sur",
