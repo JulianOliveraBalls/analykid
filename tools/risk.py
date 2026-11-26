@@ -294,6 +294,7 @@ def evaluar_turno(resultados: dict, perfil: str, hoy: date) -> dict:
         "ventanas": ventanas(amenazas, pron, caudal, inicio),
         "escalamiento": escalamiento(amenazas),
         "consultas": consultas_sugeridas(amenazas, etapa, perfil),
+        "vigilancia": [a["amenaza"] for a in amenazas if a["nivel"] == "verde"],
         "destacar_lluvia_y_canales": crecida["nivel"] in NIVELES[1:] and lluvia_fuerte,
     }
 
@@ -304,8 +305,14 @@ def redactar(r: dict) -> str:
                for a in r["amenazas"]]
     if r["etapa"]:
         e = r["etapa"]
+        if not e["periodo_critico"]:
+            critico = "no"
+        elif "Sanitaria" in r["ventanas"]:
+            critico = "SÍ, las medidas sanitarias van primero"
+        else:
+            critico = "SÍ, pero la sanitaria está en verde: solo vigilancia (monitoreo), sin tratamiento"
         lineas.append(f"Etapa de la vid (aprox.): {e['etapa']}; período crítico de peronóspora "
-                      f"{e['periodo_critico_texto']}: {'SÍ, las medidas sanitarias van primero' if e['periodo_critico'] else 'no'}. {e['nota']}")
+                      f"{e['periodo_critico_texto']}: {critico}. {e['nota']}")
     if r["dias_criticos"]:
         lineas.append("Días críticos: " + "; ".join(
             f"{_fecha(d['fecha'])} {', '.join(d['motivos'])}" for d in r["dias_criticos"]))
@@ -313,6 +320,12 @@ def redactar(r: dict) -> str:
         lineas.append("Ventanas de las medidas (usalas como títulos de Antes/Durante/Después en cada amenaza):")
         lineas += [f"- {nombre}: Antes ({v['antes']}) · Durante ({v['durante']}) · Después ({v['despues']})"
                    for nombre, v in r["ventanas"].items()]
+    if not r["ventanas"]:
+        lineas.append("Ninguna amenaza activa: no hay medidas obligatorias esta semana. Decilo en el Resumen; "
+                      "«Medidas» lleva solo la subsección «Vigilancia».")
+    if r["vigilancia"]:
+        lineas.append("En verde (sin medidas con fechas; van en la subsección «Vigilancia», con lo que las "
+                      "activaría según el escalamiento): " + ", ".join(r["vigilancia"]) + ".")
     if r["destacar_lluvia_y_canales"]:
         lineas.append("Destacar: crecida con lluvia intensa prevista (lluvia + canales con agua).")
     if r["escalamiento"]:

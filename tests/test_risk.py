@@ -176,7 +176,8 @@ def _cuerpo(filas: str, medidas: str) -> str:
 
 FILAS_OK = (r"Pluvial & \nivel{amarillo} & m \\ Granizo/tormenta & \nivel{verde} & m \\ "
             r"Aluvional & \nivel{verde} & m \\ Crecida & \nivel{sindatos} & m \\ Sanitaria & \nivel{verde} & m \\")
-MEDIDAS_OK = r"\subsection{Pluvial} \item a [Doc — Sec] \item b [Doc — Otra] \item c [Doc — Tercera]"
+MEDIDAS_OK = (r"\subsection{Pluvial} \item a [Doc — Sec] \item b [Doc — Otra] \item c [Doc — Tercera] "
+              r"\subsection{Vigilancia} Granizo / tormenta, Aluvional y Sanitaria: sin medidas obligatorias.")
 
 
 def test_informe_completo_pasa():
@@ -252,7 +253,8 @@ def _medidas_pluvial(antes=(LARGA, LARGA), durante=(LARGA,), despues=(LARGA, LAR
         items = " ".join(rf"\item {m} [Doc — Sec {i}]" for i, m in enumerate(medidas))
         return rf"\textbf{{{etiqueta}:}} \begin{{itemize}} {items} \end{{itemize}} "
     return (r"\subsection{Pluvial} " + bloque("Antes (20/11 al 23/11)", antes)
-            + bloque("Durante (24/11)", durante) + bloque("Después (25/11 al 27/11)", despues))
+            + bloque("Durante (24/11)", durante) + bloque("Después (25/11 al 27/11)", despues)
+            + r"\subsection{Vigilancia} Granizo / tormenta, Aluvional y Sanitaria: sin medidas obligatorias.")
 
 
 def test_validar_exige_medidas_detalladas_en_cada_bloque():
@@ -262,3 +264,25 @@ def test_validar_exige_medidas_detalladas_en_cada_bloque():
     assert any(p.startswith("Medidas de Pluvial, Antes: 1 medida(s)") for p in problemas)
     assert any("«drenar el agua» es muy corta" in p for p in problemas)
     assert not any("Durante" in p for p in problemas)
+
+
+def test_amenaza_en_verde_no_lleva_medidas_con_fechas_y_va_en_vigilancia():
+    con_fechas = MEDIDAS_OK + r" \subsection{Sanitaria} \textbf{Antes (20/11 al 23/11):} \begin{itemize} \item x \end{itemize}"
+    problemas = validar(_cuerpo(FILAS_OK, con_fechas), RIESGO)
+    assert any(p.startswith("Sanitaria está en verde") for p in problemas)
+    sin_aluvional = MEDIDAS_OK.replace("Aluvional y ", "")
+    assert validar(_cuerpo(FILAS_OK, sin_aluvional), RIESGO) == ["«Vigilancia» no nombra: Aluvional"]
+    sin_vigilancia = MEDIDAS_OK.split(r" \subsection{Vigilancia}")[0]
+    assert any("no tiene la subsección «Vigilancia»" in p for p in validar(_cuerpo(FILAS_OK, sin_vigilancia), RIESGO))
+
+
+def test_todo_verde_avisa_que_no_hay_medidas_obligatorias():
+    from tools.risk import redactar
+    r = {"localidad": "Tupungato", "perfil": "vid", "nivel_maximo": "verde", "dias_criticos": [],
+         "amenazas": [{"amenaza": "Sanitaria", "nivel": "verde", "motivo": "m", "umbral": "u", "origen": "o"}],
+         "etapa": {"etapa": "floración", "periodo_critico": True, "periodo_critico_texto": "15/10 al 20/12", "nota": ""},
+         "ventanas": {}, "vigilancia": ["Sanitaria"], "destacar_lluvia_y_canales": False,
+         "escalamiento": [], "consultas": []}
+    texto = redactar(r)
+    assert "no hay medidas obligatorias" in texto and "solo vigilancia" in texto
+    assert "las medidas sanitarias van primero" not in texto

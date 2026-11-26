@@ -434,6 +434,9 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
         st.dataframe(pd.DataFrame([{"Amenaza": n, "Antes": v["antes"], "Durante": v["durante"],
                                     "Después": v["despues"]} for n, v in riesgo["ventanas"].items()]),
                      hide_index=True, width="stretch")
+    elif riesgo and riesgo.get("vigilancia"):
+        st.info("Ninguna amenaza activa: no hay medidas obligatorias esta semana. "
+                "Queda en vigilancia; abajo, qué haría subir el nivel.", icon="🟢")
     if riesgo and riesgo.get("escalamiento"):
         with st.expander("Qué haría subir el nivel"):
             for regla in riesgo["escalamiento"]:
