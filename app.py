@@ -29,17 +29,26 @@ st.set_page_config(page_title="AnalyKid", page_icon=ICONO, layout="wide")
 
 # En Streamlit Community Cloud las keys llegan como Secrets, que Streamlit pasa al entorno recién
 # cuando alguien lee st.secrets; model.py las busca al importarse, así que se copian antes.
-if st.secrets.load_if_toml_exists():
-    for _clave, _valor in st.secrets.items():
-        if isinstance(_valor, str):
-            os.environ.setdefault(_clave, _valor)
+# También se aceptan dentro de una sección ([general], [secrets]…), un error común al pegarlas.
+_SECRETS: list[str] = []   # solo los nombres, para el mensaje de error
+try:
+    if st.secrets.load_if_toml_exists():
+        for _clave, _valor in st.secrets.items():
+            for _k, _v in (_valor.items() if hasattr(_valor, "items") else [(_clave, _valor)]):
+                _SECRETS.append(_k)
+                os.environ.setdefault(_k, str(_v))
+except Exception as e:   # TOML inválido, por ejemplo pegado con formato .env (KEY=valor sin comillas)
+    st.error(f"No se pudieron leer los Secrets: {type(e).__name__}. Revisá que cada línea sea "
+             'CLAVE = "valor", con comillas.')
+    st.stop()
 
 try:
     from agente import (
         MODELO, list_threads, new_thread, resume_thread, saved_turns, select_thread, stream_turn,
     )
 except RuntimeError as e:  # por ejemplo, faltan API keys en el .env
-    st.error(f"{e} En Streamlit Community Cloud se cargan en Settings → Secrets.")
+    st.error(f"{e} En Streamlit Community Cloud se cargan en Settings → Secrets. "
+             f"Secrets que ve la app: {', '.join(_SECRETS) or 'ninguno'}.")
     st.stop()
 
 
