@@ -16,6 +16,7 @@ import re
 from datetime import date
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -385,7 +386,15 @@ def _tab_pronostico(d: dict, riesgo: dict | None) -> None:
         "fecha": "Fecha", "lluvia_mm": "Lluvia (mm)", "prob_pct": "Prob. (%)", "cape_jkg": "CAPE (J/kg)",
         "rafaga_kmh": "Ráfaga (km/h)", "tmax_c": "Máx (°C)", "tmin_c": "Mín (°C)"})
     tabla["Fecha"] = tabla["Fecha"].map(_dm)
-    st.bar_chart(tabla.set_index("Fecha")[["Lluvia (mm)"]], height=200, color=AZUL)
+    # Altair y no st.bar_chart: con el índice de texto las fechas se ordenaban como texto (01/12
+    # antes que 26/11) y la barra más alta quedaba cortada arriba.
+    barras = alt.Chart(tabla).mark_bar(color=AZUL, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+        x=alt.X("Fecha:N", sort=None, axis=alt.Axis(labelAngle=0, title=None)),
+        y=alt.Y("Lluvia (mm):Q", scale=alt.Scale(domainMin=0, nice=True, padding=12)),
+        tooltip=["Fecha", "Lluvia (mm)", "Prob. (%)"])
+    valores = barras.mark_text(dy=-7, color=NAVY, fontSize=11).encode(
+        text=alt.Text("Lluvia (mm):Q", format=".1f"))
+    st.altair_chart((barras + valores).properties(height=240), width="stretch")
     st.dataframe(tabla, hide_index=True, width="stretch")
     i = d["indicadores"]
     c1, c2, c3, c4 = st.columns(4)
@@ -424,33 +433,6 @@ def _tab_alertas(d: dict | None, llamada: bool) -> None:
         st.info(f"**Información oficial · {a['titulo']}** · {a['dominio']} · {_dm(a['fecha'])}  \n{a.get('resumen', '')}  \n[Ver fuente]({a['url']})")
     if d["descartados"]:
         st.caption(f"{len(d['descartados'])} resultado(s) descartado(s): otro dominio, sin fecha o de más de 48 h.")
-
-
-def _tab_fuentes(turno: Turno) -> None:
-    conocimiento = turno.datos.get("search_knowledge_base")
-    if conocimiento:
-        st.markdown("**Base de conocimiento (última consulta)**")
-        for f in conocimiento:
-            st.markdown(f"- **{f['documento']} — {f['seccion']}** ({f['origen']})")
-    if turno.fuentes:
-        st.markdown("**Todas las fuentes del turno**")
-        for s in turno.fuentes:
-            st.markdown(f"- [{s['title']}]({s['url']})" if s["url"].startswith("http") else f"- {s['title']}")
-    if not conocimiento and not turno.fuentes:
-        st.caption("Sin fuentes registradas en este turno.")
-
-
-def _tab_pdf(d: dict, clave: str) -> None:
-    pdf = Path(d["pdf"])
-    if not pdf.exists():
-        st.warning("El PDF ya no está en output/.")
-        return
-    try:
-        st.pdf(str(pdf), height=700)
-    except Exception:   # sin el componente streamlit-pdf, solo queda la descarga
-        st.caption("Vista previa no disponible: descargá el PDF.")
-    with st.expander("Código LaTeX generado"):
-        st.code(d.get("latex", ""), language="latex")
 
 
 def _completar_pronostico(d: dict | None) -> dict | None:
@@ -535,8 +517,8 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
                                file_name=Path(pdf["pdf"]).name, mime="application/pdf",
                                key=f"{clave}-pdf", type="primary", width="stretch")
 
-    nombres = ["Pronóstico", "Caudal", "Alertas", "Fuentes"] + (["Informe"] if pdf else [])
-    tabs = st.tabs(nombres)
+    # Sin pestañas de Fuentes ni de Informe: el PDF se baja con el botón del panel.
+    tabs = st.tabs(["Pronóstico", "Caudal", "Alertas"])
     with tabs[0]:
         if pron:
             _tab_pronostico(pron, riesgo)
@@ -549,11 +531,6 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
             st.info("Sin caudal en este turno.")
     with tabs[2]:
         _tab_alertas(turno.datos.get("web_search"), "web_search" in turno.llamadas)
-    with tabs[3]:
-        _tab_fuentes(turno)
-    if pdf:
-        with tabs[4]:
-            _tab_pdf(pdf, clave)
 
 
 # --- Un turno completo ---------------------------------------------------------------
