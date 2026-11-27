@@ -28,7 +28,7 @@ Completá las claves en el `.env`. Por defecto se usa `gemini-3.5-flash-lite` co
 
 **Tectonic.** Linux y macOS: `brew install tectonic` o `conda install -c conda-forge tectonic`. Windows: descargá `tectonic.exe` desde [releases](https://github.com/tectonic-typesetting/tectonic/releases). Si no queda en el `PATH`, definí `TECTONIC_PATH` en el `.env`. La primera compilación descarga paquetes y tarda: corré los tests una vez antes de la demo.
 
-**Base de conocimiento** (una vez, y cada vez que cambien los documentos de `rag/docs/`):
+**Base de conocimiento** (una vez, y cada vez que cambien los documentos de `rag/docs/`; si no existe, la app la arma sola al arrancar):
 
 ```bash
 python -m rag.ingest
@@ -41,9 +41,11 @@ python -m rag.evaluar              # opcional: acierto@4 sobre 12 preguntas
 streamlit run app.py
 ```
 
-La consulta se arma con el formulario de la barra lateral (localidad, perfil, superficie y días), con los ejemplos de la pantalla inicial o escribiendo en el chat. Cada respuesta muestra arriba el semáforo por amenaza, el mapa y pestañas con pronóstico, caudal, alertas, fuentes y el PDF; después, la respuesta final; y abajo, el recorrido del agente.
+La consulta se arma con el formulario de la barra lateral (localidad, perfil, superficie y días), con los ejemplos de la pantalla inicial o escribiendo en el chat. Cada respuesta muestra arriba el recorrido del agente y, debajo, el resultado: el semáforo por amenaza, el cronograma de acciones, el mapa, El Niño, los contactos de emergencia, pestañas con pronóstico, caudal y alertas, el botón para descargar el PDF y la respuesta final en markdown.
 
-**Recorrido del agente.** Cada respuesta del modelo es un paso. En cada paso se ve la cadena de pensamiento (el razonamiento que expone el modelo y lo que anuncia) y, por cada tool que pidió, cuatro cosas: la invocación (qué tool), los parámetros exactos que le pasó el modelo (JSON), el resultado que recibió (el texto completo del `ToolMessage`) y si terminó bien o con error. Las tools de un mismo paso se piden en paralelo. El recorrido del último turno queda desplegado; los anteriores, plegados.
+**Recorrido del agente.** Cada respuesta del modelo es un paso. En cada paso se ve la cadena de pensamiento (el razonamiento que expone el modelo y lo que anuncia) y, por cada tool que pidió, cuatro cosas: la invocación (qué tool), los parámetros exactos que le pasó el modelo (JSON), el resultado que recibió (el texto completo del `ToolMessage`) y si terminó bien o con error. Las tools de un mismo paso se piden en paralelo. Mientras el agente trabaja, el recorrido se ve abierto y se va armando en vivo (streaming); al terminar queda plegado arriba, con el resumen de pasos y llamadas, y se puede volver a abrir.
+
+**Versión publicada.** La app corre en Streamlit Community Cloud: https://analykid.streamlit.app. Para publicar otra instancia: repo y rama `main`, archivo `app.py`, Python 3.12, y las claves del `.env.example` cargadas en *Settings → Secrets* con formato TOML (`GOOGLE_API_KEY = "..."`). En el servidor no hace falta instalar nada a mano: si falta Tectonic en Linux x86_64, `create_pdf` baja un release fijo y verifica su SHA-256, y si falta la base vectorial, la app la ingesta al arrancar. Las conversaciones se guardan en el servidor y se borran cuando se reinicia.
 
 Demo en dos turnos:
 
@@ -61,7 +63,8 @@ No usan red ni el modelo: datos, `pedir()` ante 429 y timeout, indicadores de ca
 ## Estructura
 
 ```
-├── app.py            # UI de Streamlit: formulario, panel (semáforo, mapa, pestañas, PDF) y recorrido paso a paso
+├── app.py            # UI de Streamlit: formulario, recorrido paso a paso y resultado (semáforo, mapa, pestañas, PDF)
+├── middleware.py     # continuar_si_solo_anuncia: hace seguir al modelo cuando anuncia y no actúa
 ├── .streamlit/       # tema de la interfaz
 ├── assets/           # logo de la app
 ├── agente.py         # system prompt (flujo y semáforo), create_agent, memoria y streaming
@@ -90,7 +93,10 @@ python scripts/descargar_respaldo_enso.py    # copia del RONI para funcionar sin
 ## Notas
 
 - **Razonamiento:** Gemini devuelve resúmenes de su razonamiento con `include_thoughts=True` (en Gemini 3+, además, con `THINKING_LEVEL`) y la UI los muestra en «Cadena de pensamiento», dentro de cada paso del recorrido. Si el modelo no los devuelve en un paso, la UI lo dice en ese paso y todo lo demás funciona igual.
-- **Errores:** ninguna tool lanza excepciones. Ante una falla devuelven `ERROR <tool>: <causa>. <qué hacer>` y el agente sigue: la amenaza afectada queda «sin datos», nunca en verde. El 429 y el 503 del modelo los reintenta el cliente con espera exponencial; si persisten, `ModelFallbackMiddleware` (el único middleware) repite la llamada con `MODEL_FALLBACK`. Los de las APIs los reintenta `pedir()` (2, 4 y 8 s).
+- **Errores:** ninguna tool lanza excepciones. Ante una falla devuelven `ERROR <tool>: <causa>. <qué hacer>` y el agente sigue: la amenaza afectada queda «sin datos», nunca en verde. El 429 y el 503 del modelo los reintenta el cliente con espera exponencial. Los de las APIs los reintenta `pedir()` (2, 4 y 8 s).
+- **Middleware (dos):**
+  - `ModelFallbackMiddleware`, de LangChain. Problema: los 503 de Gemini (servicio saturado) y los 429 persistentes cortaban el turno sin informe, aun con los reintentos del cliente. Repite la llamada con `MODEL_FALLBACK`, otro modelo del mismo proveedor. Por qué no con código propio: haría falta envolver la llamada al modelo dentro del ciclo de `create_agent`, que es justo el punto de extensión que este middleware ya resuelve, probado y sin tocar el grafo; uno propio duplicaría esa lógica.
+  - `continuar_si_solo_anuncia` (`middleware.py`), propio. Problema: Flash Lite a veces terminaba el mensaje anunciando una consulta («Consultaré…») sin hacer las llamadas, y el turno se cortaba; reescribir el prompt no lo resolvía. Agrega un recordatorio interno y vuelve al modelo, hasta 2 veces seguidas sin avance. Es propio porque ningún middleware de LangChain cubre ese caso.
 - **PDF:** Tectonic corre sin shell, con argumentos fijos y en modo `--untrusted`, y el cuerpo se filtra con una lista de comandos prohibidos. Es adecuado para uso local.
 - El informe **no reemplaza** las alertas oficiales del SMN ni las indicaciones de Defensa Civil.
 
