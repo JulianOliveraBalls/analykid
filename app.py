@@ -1,10 +1,11 @@
 """UI de Streamlit para AnalyKid.
 
-Cada respuesta tiene tres partes: el panel de resultado (semáforo, mapa y
-pestañas con los datos de las tools), la respuesta final y el recorrido del
-agente, paso a paso: en cada paso se ve la cadena de pensamiento del modelo y,
-por cada tool, la invocación, los parámetros que le pasó y el resultado que
-recibió. La lógica vive en agente.py; acá solo se dibujan los eventos que emite.
+Cada respuesta tiene dos partes: el recorrido del agente, paso a paso (en cada
+paso, la cadena de pensamiento del modelo y, por cada tool, la invocación, los
+parámetros que le pasó y el resultado que recibió), y debajo la respuesta final
+con el botón del PDF. Los datos de las tools (semáforo, pronóstico, caudal,
+contactos) van en la primera página del PDF. La lógica vive en agente.py; acá
+solo se dibujan los eventos que emite.
 
 Ejecutar con:  streamlit run app.py
 """
@@ -13,14 +14,9 @@ import html
 import json
 import os
 import re
-from datetime import date
 from pathlib import Path
 
-import altair as alt
-import pandas as pd
 import streamlit as st
-
-from tools.risk import evaluar, nivel_maximo
 
 DIR = Path(__file__).parent
 LOGO = DIR / "assets" / "analykid-logo.svg"
@@ -65,9 +61,6 @@ def _preparar_rag() -> None:
 _preparar_rag()
 
 LOCALIDADES = json.loads((DIR / "datos" / "localidades.json").read_text(encoding="utf-8"))["localidades"]
-RIOS = json.loads((DIR / "datos" / "rios.json").read_text(encoding="utf-8"))["rios"]
-OASIS = {"norte": "Norte", "este": "Este", "valle_de_uco": "Valle de Uco", "sur": "Sur",
-         "alta_montana": "Alta montaña"}
 PERFILES = {"vid": "Vid", "frutal": "Frutal", "hortaliza": "Hortaliza", "urbano": "Urbano"}
 EJEMPLOS = [
     ("Vid en Tupungato", "Armame el plan de contingencia para una finca de vid de 10 hectáreas "
@@ -91,9 +84,6 @@ TITULOS = {
 ALTO_BLOQUE = 240      # px: los resultados largos (skills, RAG, LaTeX) se recorren con scroll
 LINEAS_SIN_SCROLL = 9
 
-# Marca: blanco, texto oscuro y el azul solo en detalles. Los únicos colores fuera de la
-# paleta son los del semáforo.
-NAVY, AZUL, GRIS = "#0B1F5C", "#1226B4", "#6B7280"
 
 st.markdown("""
 <style>
@@ -207,9 +197,6 @@ def _bloque(texto: str, lenguaje: str | None = None) -> None:
     largo = texto.count("\n") >= LINEAS_SIN_SCROLL or len(texto) > 900
     st.code(texto, language=lenguaje, wrap_lines=True, **({"height": ALTO_BLOQUE} if largo else {}))
 
-
-def _dm(iso: str | None) -> str:
-    return date.fromisoformat(iso[:10]).strftime("%d/%m") if iso else "s/d"
 
 
 def init_session(config) -> None:
@@ -355,193 +342,15 @@ def render_recorrido(eventos, turno: Turno, vivo: bool) -> list[dict]:
     return emitidos
 
 
-# --- Panel de resultado ------------------------------------------------------------
-
-def _tarjetas(amenazas: list[dict]) -> None:
-    for col, a in zip(st.columns(len(amenazas)), amenazas):
-        clase = a["nivel"].replace(" ", "-")
-        col.markdown(
-            f'<div class="ak-card ak-{clase}"><div class="ak-amenaza">{a["amenaza"]}</div>'
-            f'<div class="ak-nivel"><span class="ak-punto"></span>{a["nivel"].capitalize()}</div>'
-            f'<div class="ak-motivo">{a["motivo"]}</div></div>', unsafe_allow_html=True)
-
-
-def _mapa(pron: dict | None, caudal: dict | None) -> None:
-    puntos = []
-    if pron:
-        puntos.append({"lat": pron["latitud"], "lon": pron["longitud"], "color": NAVY + "E6", "tam": 2500})
-    if caudal:
-        puntos.append({"lat": caudal["latitud"], "lon": caudal["longitud"], "color": AZUL + "99", "tam": 1800})
-    if puntos:
-        st.map(pd.DataFrame(puntos), latitude="lat", longitude="lon", color="color", size="tam",
-               zoom=8, height=290)
-        st.caption("Punto grande: localidad · punto chico: punto de consulta del río (GloFAS)")
-
-
-def _tab_pronostico(d: dict, riesgo: dict | None) -> None:
-    if riesgo and riesgo.get("dias_criticos"):
-        st.markdown("**Días críticos**")
-        for c in riesgo["dias_criticos"]:
-            st.markdown(f"- **{_dm(c['fecha'])}**: {', '.join(c['motivos'])}")
-    tabla = pd.DataFrame(d["dias"]).rename(columns={
-        "fecha": "Fecha", "lluvia_mm": "Lluvia (mm)", "prob_pct": "Prob. (%)", "cape_jkg": "CAPE (J/kg)",
-        "rafaga_kmh": "Ráfaga (km/h)", "tmax_c": "Máx (°C)", "tmin_c": "Mín (°C)"})
-    tabla["Fecha"] = tabla["Fecha"].map(_dm)
-    # Altair y no st.bar_chart: con el índice de texto las fechas se ordenaban como texto (01/12
-    # antes que 26/11) y la barra más alta quedaba cortada arriba.
-    barras = alt.Chart(tabla).mark_bar(color=AZUL, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-        x=alt.X("Fecha:N", sort=None, axis=alt.Axis(labelAngle=0, title=None)),
-        y=alt.Y("Lluvia (mm):Q", scale=alt.Scale(domainMin=0, nice=True, padding=12)),
-        tooltip=["Fecha", "Lluvia (mm)", "Prob. (%)"])
-    valores = barras.mark_text(dy=-7, color=NAVY, fontSize=11).encode(
-        text=alt.Text("Lluvia (mm):Q", format=".1f"))
-    st.altair_chart((barras + valores).properties(height=240), width="stretch")
-    st.dataframe(tabla, hide_index=True, width="stretch")
-    i = d["indicadores"]
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Lluvia acumulada", f"{i['lluvia_acumulada_mm']} mm")
-    c2.metric("Ráfaga máx.", f"{i['rafaga_max_kmh']} km/h", _dm(i["fecha_rafaga_max"]), delta_color="off", delta_arrow="off")
-    c3.metric("Días ≥ 10 mm", i["dias_lluvia_10mm"])
-    c4.metric("Mínima más baja", f"{i['tmin_mas_baja_c']} °C", _dm(i["fecha_tmin_mas_baja"]), delta_color="off", delta_arrow="off")
-
-
-def _tab_caudal(d: dict) -> None:
-    serie = pd.DataFrame(d["serie"]).rename(columns={
-        "caudal_m3s": "Caudal previsto", "media_1991_2020_m3s": "Media 1991-2020"})
-    serie["fecha"] = pd.to_datetime(serie["fecha"])
-    st.line_chart(serie.set_index("fecha"), y_label="m³/s", height=260, color=[AZUL, GRIS])
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Cociente máx. / media", d["cociente"])
-    c2.metric("Caudal máx.", f"{d['caudal_max_m3s']} m³/s", _dm(d["fecha_max"]), delta_color="off", delta_arrow="off")
-    c3.metric("Tendencia", d["tendencia"].capitalize())
-    st.caption(f"{d['nombre']} en {d['estacion']}. Caudal simulado (GloFAS): no incluye la regulación de los embalses.")
-
-
-def _tab_alertas(d: dict | None, llamada: bool) -> None:
-    if d is None:
-        st.info("La búsqueda de alertas falló: el informe sigue sin alertas oficiales." if llamada
-                else "No se consultaron alertas en este turno.")
-        return
-    if d.get("zona_usada"):
-        st.caption(f"Búsqueda: {d['zona_usada']} · dominios oficiales · últimas 48 h")
-    alertas = [a for a in d["elegidos"] if a.get("es_alerta")]
-    info = [a for a in d["elegidos"] if not a.get("es_alerta")]
-    if not alertas:
-        st.success("Sin alertas oficiales vigentes. No implica ausencia de riesgo.")
-    for a in alertas:
-        st.error(f"**Alerta oficial · {a['titulo']}** · {a['dominio']} · {_dm(a['fecha'])}  \n{a.get('resumen', '')}  \n[Ver fuente]({a['url']})")
-    for a in info:
-        st.info(f"**Información oficial · {a['titulo']}** · {a['dominio']} · {_dm(a['fecha'])}  \n{a.get('resumen', '')}  \n[Ver fuente]({a['url']})")
-    if d["descartados"]:
-        st.caption(f"{len(d['descartados'])} resultado(s) descartado(s): otro dominio, sin fecha o de más de 48 h.")
-
-
-def _completar_pronostico(d: dict | None) -> dict | None:
-    """Conversaciones guardadas con una versión anterior de la tool no traen estos campos:
-    se completan desde el catálogo."""
-    if not d or d.get("localidad") not in LOCALIDADES:
-        return d
-    loc = LOCALIDADES[d["localidad"]]
-    return {"nombre": loc["nombre"], "departamento": loc["departamento"],
-            "oasis": OASIS.get(loc["oasis"], loc["oasis"]), "piedemonte": loc["piedemonte"],
-            "rio": loc["rio"], "latitud": loc["latitud"], "longitud": loc["longitud"],
-            "emergencias": loc["emergencias"], **d}
-
-
-def _completar_caudal(d: dict | None) -> dict | None:
-    if not d or d.get("rio") not in RIOS:
-        return d
-    r = RIOS[d["rio"]]
-    return {"nombre": r["nombre"], "estacion": r["estacion_referencia"],
-            "latitud": r["consulta"]["latitud"], "longitud": r["consulta"]["longitud"], **d}
-
-
-def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
-    pron = _completar_pronostico(turno.datos.get("get_weather_forecast"))
-    caudal = _completar_caudal(turno.datos.get("get_river_discharge"))
-    enso = turno.datos.get("get_enso_status")
-    pdf = turno.datos.get("create_pdf")
-    if not (pron or caudal or pdf):
-        return
-
-    riesgo = turno.datos.get("evaluate_risk")
-    if riesgo:   # el mismo cálculo que recibe el modelo y verifica create_pdf
-        amenazas, maximo = riesgo["amenazas"], riesgo["nivel_maximo"]
-    else:        # conversaciones guardadas antes de evaluate_risk
-        amenazas = evaluar(pron, caudal, perfil)
-        maximo = nivel_maximo(amenazas)
-    lugar = pron["nombre"] if pron else (caudal["nombre"] if caudal else "Resultado")
-    chips = []
-    if pron:
-        chips += [pron["oasis"], RIOS.get(pron["rio"], {}).get("nombre", f"Río {pron['rio'].capitalize()}"),
-                  "Piedemonte" if pron["piedemonte"] else "Fuera del piedemonte"]
-    if riesgo and riesgo.get("etapa"):
-        e = riesgo["etapa"]
-        chips.append(f"Etapa: {e['etapa']}" + (" · período crítico" if e["periodo_critico"] else ""))
-    chips.append(f'<span class="ak-punto ak-{maximo.replace(" ", "-")}"></span>Nivel máximo: {maximo}')
-    st.markdown(f'<div class="ak-titulo"><h3>{lugar}</h3>'
-                + "".join(f'<span class="ak-chip">{c}</span>' for c in chips) + "</div>",
-                unsafe_allow_html=True)
-    _tarjetas(amenazas)
-    if riesgo and riesgo.get("ventanas"):
-        _seccion("Cronograma de acciones")
-        st.dataframe(pd.DataFrame([{"Amenaza": n, "Antes": v["antes"], "Durante": v["durante"],
-                                    "Después": v["despues"]} for n, v in riesgo["ventanas"].items()]),
-                     hide_index=True, width="stretch")
-    elif riesgo and riesgo.get("vigilancia"):
-        st.info("Ninguna amenaza activa: no hay medidas obligatorias esta semana. "
-                "Queda en vigilancia; abajo, qué haría subir el nivel.", icon="🟢")
-    if riesgo and riesgo.get("escalamiento"):
-        with st.expander("Qué haría subir el nivel"):
-            for regla in riesgo["escalamiento"]:
-                st.markdown(f"- {regla}")
-
-    izq, der = st.columns([3, 2])
-    with izq:
-        _mapa(pron, caudal)
-    with der:
-        if enso:
-            st.metric(f"El Niño · RONI {enso['trimestre']}", f"{enso['valor']:+.2f}",
-                      f"{enso['fase']} {enso['categoria']} · {enso['tendencia']}", delta_color="off", delta_arrow="off")
-        if pron:
-            e = pron["emergencias"]
-            municipal = e["defensa_civil_municipal"] if e.get("verificado") else None
-            _seccion("Contactos de emergencia")
-            cc = e.get("contingencias_climaticas")
-            st.markdown(f"Emergencias: **{e['general']}**" +
-                        (f"  \nDefensa Civil municipal: **{municipal}**" if municipal else
-                         "  \n_Sin contacto municipal verificado_") +
-                        (f"  \nDenuncia de daños (Contingencias Climáticas, {cc['delegacion']}): "
-                         f"**{cc['telefono']}**" if cc else ""))
-        if pdf and Path(pdf["pdf"]).exists():
-            st.download_button("Descargar plan (PDF)", Path(pdf["pdf"]).read_bytes(),
-                               file_name=Path(pdf["pdf"]).name, mime="application/pdf",
-                               key=f"{clave}-pdf", type="primary", width="stretch")
-
-    # Sin pestañas de Fuentes ni de Informe: el PDF se baja con el botón del panel.
-    tabs = st.tabs(["Pronóstico", "Caudal", "Alertas"])
-    with tabs[0]:
-        if pron:
-            _tab_pronostico(pron, riesgo)
-        else:
-            st.info("Sin pronóstico en este turno.")
-    with tabs[1]:
-        if caudal:
-            _tab_caudal(caudal)
-        else:
-            st.info("Sin caudal en este turno.")
-    with tabs[2]:
-        _tab_alertas(turno.datos.get("web_search"), "web_search" in turno.llamadas)
-
-
 # --- Un turno completo ---------------------------------------------------------------
 
-def render_turno(eventos, perfil: str | None, clave: str, vivo: bool) -> list[dict]:
-    """Recorrido plegado arriba y, debajo, el panel y la respuesta final. Sirve en vivo y para el historial.
+def render_turno(eventos, clave: str, vivo: bool) -> list[dict]:
+    """Recorrido arriba y, debajo, la respuesta final con el PDF. Sirve en vivo y para el historial.
 
     Mientras el agente trabaja, «Armando plan de contingencia…» queda abierto y cada paso se ve
     en vivo con sus tools, parámetros y resultados. Al terminar, la página se redibuja desde el
-    historial: el recorrido queda plegado arriba, con su resumen, y el resultado debajo.
+    historial: el recorrido queda plegado arriba, con su resumen, y debajo la respuesta y el
+    botón del PDF. Los datos (semáforo, pronóstico, caudal, contactos) van en el propio PDF.
     """
     turno = Turno()
     with st.container(key=f"ak-recorrido-{clave}"):
@@ -554,22 +363,17 @@ def render_turno(eventos, perfil: str | None, clave: str, vivo: bool) -> list[di
         n = sum(e["tipo"] == "llamada" for e in emitidos)
         caja.update(label=f"Recorrido del agente · {turno.pasos} paso(s) · {n} llamada(s) a tools"
                     + (f" · {turno.errores} con error" if turno.errores else ""), state="complete")
-    render_panel(turno, perfil, clave)
     if finales := [texto for pos, texto in turno.textos if pos > turno.ultima_llamada]:
         _seccion("Respuesta final")
         for texto in finales:
             st.markdown(texto)
+    pdf = turno.datos.get("create_pdf")
+    if pdf and Path(pdf["pdf"]).exists():
+        st.download_button("Descargar plan (PDF)", Path(pdf["pdf"]).read_bytes(), file_name=Path(pdf["pdf"]).name,
+                           mime="application/pdf", key=f"{clave}-pdf", type="primary", icon=":material/download:")
+    elif pdf:
+        st.caption("El PDF de esta conversación ya no está en el servidor: pedí el plan de nuevo para generarlo.")
     return emitidos
-
-
-def perfil_de(preguntas: list[str]) -> str | None:
-    """Perfil mencionado en la conversación (el último que aparezca)."""
-    perfil = None
-    for p in preguntas:
-        for clave in PERFILES:
-            if clave in p.lower():
-                perfil = clave
-    return perfil
 
 
 # --- Barra lateral --------------------------------------------------------------------
@@ -669,7 +473,7 @@ if not historial and "pendiente" not in st.session_state:
 for n, (pregunta, eventos) in enumerate(historial, 1):
     _burbuja(pregunta)
     with st.container():
-        render_turno(eventos, perfil_de([p for p, _ in historial[:n]]), f"t{n}", vivo=False)
+        render_turno(eventos, f"t{n}", vivo=False)
 
 prompt = st.chat_input(PLACEHOLDER)
 prompt = prompt or st.session_state.pop("pendiente", None)
@@ -678,9 +482,7 @@ if prompt:
     _burbuja(prompt)
     with st.container():
         try:
-            perfil = perfil_de([p for p, _ in historial] + [prompt])
-            eventos = render_turno(stream_turn(prompt, st.session_state.config, turno),
-                                   perfil, f"t{turno}", vivo=True)
+            eventos = render_turno(stream_turn(prompt, st.session_state.config, turno), f"t{turno}", vivo=True)
         except Exception as e:
             st.error(mensaje_de_error(e))
             st.stop()

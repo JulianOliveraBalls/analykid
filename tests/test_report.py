@@ -15,7 +15,7 @@ def _ejemplo() -> str:
 
 def test_plantilla_tiene_macros_y_descargo():
     tex = report.armar_tex("Plan & riesgo 100%", "cuerpo")
-    assert r"\title{Plan \& riesgo 100\%}" in tex and "cuerpo" in tex
+    assert r"\LARGE\bfseries Plan \& riesgo 100\%}" in tex and "cuerpo" in tex
     assert all(rf"\newcommand{{\nivel{n}}}" in tex for n in ("verde", "amarillo", "naranja", "rojo", "sindatos"))
     assert "no reemplaza las alertas oficiales del SMN" in tex
 
@@ -75,3 +75,55 @@ def test_escapar_ampersands_fuera_de_tablas():
 def test_escapar_ampersands_despues_de_longtable():
     cuerpo = r"\begin{longtable}{ll} x & y \\ \end{longtable} P&G"
     assert report.escapar_ampersands(cuerpo) == r"\begin{longtable}{ll} x & y \\ \end{longtable} P\&G"
+
+
+def _muestra() -> dict:
+    return {
+        "get_weather_forecast": {
+            "nombre": "Tupungato", "oasis": "Valle de Uco", "rio": "tunuyan", "piedemonte": True,
+            "dias": [{"fecha": "2026-11-26", "lluvia_mm": 1.6, "prob_pct": 73, "cape_jkg": 1050, "rafaga_kmh": 36,
+                      "tmax_c": 23.7, "tmin_c": 13.0},
+                     {"fecha": "2026-11-27", "lluvia_mm": 27.4, "prob_pct": 85, "cape_jkg": 550, "rafaga_kmh": 35,
+                      "tmax_c": 20.1, "tmin_c": 13.4}],
+            "indicadores": {"lluvia_acumulada_mm": 29.0, "lluvia_max_mm": 27.4, "fecha_lluvia_max": "2026-11-27",
+                            "cape_max_jkg": 1050, "fecha_cape_max": "2026-11-26", "rafaga_max_kmh": 36,
+                            "fecha_rafaga_max": "2026-11-26", "tmin_mas_baja_c": 13.0,
+                            "fecha_tmin_mas_baja": "2026-11-26", "dias_favorables_hongos": 1},
+            "emergencias": {"general": "911", "defensa_civil_municipal": "2622 574912", "verificado": "2026-11-20"},
+        },
+        "get_river_discharge": {"nombre": "Río Tunuyán", "caudal_max_m3s": 19.0, "fecha_max": "2026-11-27",
+                                "media_1991_2020_m3s": 22.0, "cociente": 0.86, "tendencia": "estable",
+                                "serie": [{"fecha": "2026-11-26", "caudal_m3s": 19.0, "media_1991_2020_m3s": 22.0},
+                                          {"fecha": "2026-11-27", "caudal_m3s": 18.5, "media_1991_2020_m3s": 22.1}]},
+        "web_search": {"elegidos": [{"titulo": "Alerta por tormentas 100% & granizo_#1", "dominio": "smn.gob.ar",
+                                     "es_alerta": True}]},
+        "evaluate_risk": {"nivel_maximo": "naranja", "etapa": {"etapa": "cuaje", "periodo_critico": True},
+                          "amenazas": [{"amenaza": "Pluvial", "nivel": "naranja", "motivo": "Lluvia máx. 27.4 mm"},
+                                       {"amenaza": "Crecida", "nivel": "verde", "motivo": "Caudal 0.86 veces la media"}],
+                          "ventanas": {"Pluvial": {"antes": "26/11", "durante": "27/11", "despues": "28/11 al 30/11"}}},
+    }
+
+
+def test_panel_escapa_el_texto_externo_y_no_usa_comandos_prohibidos():
+    from tools.panel import panel_latex
+    panel = panel_latex(_muestra())
+    assert r"100\% \& granizo\_\#1" in panel
+    assert not any(p in panel for p in report.PROHIBIDO)
+    assert "Tupungato" in panel and "Río Tunuyán" in panel and "NARANJA" in panel
+
+
+def test_panel_vacio_sin_datos():
+    from tools.panel import panel_latex
+    assert panel_latex({}) == ""
+
+
+def test_panel_compila_con_el_ejemplo_de_la_skill(tmp_path):
+    from tools.panel import panel_latex
+    tectonic = report._tectonic()
+    if not tectonic:
+        pytest.skip("Tectonic no está instalado")
+    tex = tmp_path / "plan.tex"
+    tex.write_text(report.armar_tex("Plan de contingencia", _ejemplo(), panel_latex(_muestra())), encoding="utf-8")
+    proc = report.compilar(tectonic, tex)
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert tex.with_suffix(".pdf").exists()
