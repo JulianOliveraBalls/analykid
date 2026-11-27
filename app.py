@@ -245,8 +245,9 @@ class Paso:
         self.nombres: list[str] = []
         self.errores = 0
         self.con_pensamiento = False
-        # Plegado siempre: el detalle se abre a demanda, como el razonamiento de un chat.
-        self.caja = st.status(f"Paso {n}", expanded=False, state="running" if vivo else "complete")
+        # Abierto mientras el agente trabaja (la consigna pide ver cada tool en vivo); en el
+        # historial queda plegado y se abre a demanda, como el razonamiento de un chat.
+        self.caja = st.status(f"Paso {n}", expanded=vivo, state="running" if vivo else "complete")
 
     def pensamiento(self) -> None:
         """Encabezado de la cadena de pensamiento, una sola vez por paso."""
@@ -538,13 +539,13 @@ def render_panel(turno: Turno, perfil: str | None, clave: str) -> None:
 def render_turno(eventos, perfil: str | None, clave: str, vivo: bool) -> list[dict]:
     """Recorrido plegado arriba y, debajo, el panel y la respuesta final. Sirve en vivo y para el historial.
 
-    Mientras el agente trabaja solo se ve «Armando plan de contingencia…» con su animación;
-    los pasos quedan adentro, plegados, y se abren a demanda. Al terminar el bloque pasa a
-    resumir el recorrido y el resultado aparece debajo.
+    Mientras el agente trabaja, «Armando plan de contingencia…» queda abierto y cada paso se ve
+    en vivo con sus tools, parámetros y resultados. Al terminar, la página se redibuja desde el
+    historial: el recorrido queda plegado arriba, con su resumen, y el resultado debajo.
     """
     turno = Turno()
     with st.container(key=f"ak-recorrido-{clave}"):
-        caja = st.status("Armando plan de contingencia…", expanded=False,
+        caja = st.status("Armando plan de contingencia…", expanded=vivo,
                          state="running" if vivo else "complete")
         with caja:
             st.caption("Cada paso es una respuesta del modelo: su cadena de pensamiento y, por cada "
