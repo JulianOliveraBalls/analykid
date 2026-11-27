@@ -347,22 +347,30 @@ def render_recorrido(eventos, turno: Turno, vivo: bool) -> list[dict]:
 EMOJI_NIVEL = {"verde": "🟢", "amarillo": "🟡", "naranja": "🟠", "rojo": "🔴"}
 EMOJI_AMENAZA = [("Sanitari", "🍇"), ("Pluvial", "🌧️"), ("Granizo", "⛈️"), ("Tormenta", "⛈️"),
                  ("Aluvional", "⛰️"), ("Crecida", "🌊")]
-_NIVEL = re.compile(r"(?<![\w🟢🟡🟠🔴] )(?<!\w)(verde|amarillo|naranja|rojo)\b", re.IGNORECASE)
+_NIVEL = re.compile(r"(?<![🟢🟡🟠🔴] )(?<!\w)(verde|amarillo|naranja|rojo)\b", re.IGNORECASE)
 # Amenaza al empezar un renglón o una viñeta, seguida de «:» o «(» («Sanitaria: …», «**Pluvial** (…)»).
 _AMENAZA = re.compile(r"^(\s*(?:[-*]|\d+\.)?\s*(?:\*\*)?)((?:Sanitari|Pluvial|Granizo|Tormenta|Aluvional|Crecida)[^:(\n]{0,40}?"
                       r"(?:\*\*)?\s*[:(])", re.IGNORECASE | re.MULTILINE)
 
 
 def _con_emojis(texto: str) -> str:
-    """Respuesta final con un emoji por nivel y por amenaza. Las citas [Documento — Sección] no se tocan."""
+    """Respuesta final con un emoji por nivel y por amenaza, y las citas en azul y en cursiva.
+
+    Las citas `[Documento — Sección]` se muestran distintas para que se lean como fuente y no como
+    parte de la respuesta; su texto no se toca.
+    """
     def amenaza(m: re.Match) -> str:
         emoji = next(e for clave, e in EMOJI_AMENAZA if m.group(2).lower().startswith(clave.lower()))
         return f"{m.group(1)}{emoji} {m.group(2)}"
 
-    partes = re.split(r"(\[[^\]]*\])", texto)   # las posiciones impares son citas
-    for i in range(0, len(partes), 2):
-        partes[i] = _NIVEL.sub(lambda m: f"{EMOJI_NIVEL[m.group(1).lower()]} {m.group(1)}", partes[i])
-        partes[i] = _AMENAZA.sub(amenaza, partes[i])
+    partes = re.split(r"(\[[^\]]*\])", texto)   # las posiciones impares son lo que va entre corchetes
+    for i, parte in enumerate(partes):
+        if i % 2:
+            if " — " in parte:   # cita del RAG: en azul y en cursiva, con sus corchetes
+                partes[i] = f":blue[*{parte.replace('*', '')}*]"
+            continue
+        parte = _NIVEL.sub(lambda m: f"{EMOJI_NIVEL[m.group(1).lower()]} {m.group(1)}", parte)
+        partes[i] = _AMENAZA.sub(amenaza, parte)
     return "".join(partes)
 
 
