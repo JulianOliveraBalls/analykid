@@ -8,7 +8,7 @@ Consulta el estado de El Niño (NOAA), el pronóstico (Open-Meteo), el caudal de
 
 ## Requisitos
 
-- Python 3.10 o superior y Git
+- Python 3.11 o superior (probado con 3.12) y Git: pandas, LangChain y Streamlit, en las versiones fijadas, no instalan en 3.10
 - `GOOGLE_API_KEY` ([AI Studio](https://aistudio.google.com/apikey)): modelo y embeddings del RAG
 - `TAVILY_API_KEY` ([Tavily](https://app.tavily.com)): búsqueda de alertas oficiales
 - [Tectonic](https://tectonic-typesetting.github.io/book/latest/installation): compilador de LaTeX para el PDF
