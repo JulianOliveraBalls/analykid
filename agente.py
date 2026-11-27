@@ -55,7 +55,7 @@ y load_skill("latex") si todavía no están en el historial de la conversación.
 4. create_pdf con el informe completo según la skill informe_riesgo. Si devuelve ERROR, \
 corregí lo que indica y reintentá: máximo 3 intentos.
 5. Respuesta final en el chat: nivel máximo, amenazas activas, las medidas más urgentes y el \
-nombre del PDF.
+nombre del PDF. Va en markdown, sin comandos LaTeX: el LaTeX es solo para el cuerpo de create_pdf.
 
 # Preguntas sueltas
 Si preguntan qué significa un dato, un indicador o un término (CAPE, caudal, RONI, un nivel del \

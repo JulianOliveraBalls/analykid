@@ -401,6 +401,22 @@ _AMENAZA = re.compile(r"^(\s*(?:[-*]|\d+\.)?\s*(?:\*\*)?)((?:Sanitari|Pluvial|Gr
                       r"(?:\*\*)?\s*[:(])", re.IGNORECASE | re.MULTILINE)
 
 
+# El modelo a veces arrastra LaTeX del PDF a la respuesta del chat («\textbf{Naranja}»): se pasa
+# a markdown antes de dibujarla.
+_LATEX = [(re.compile(r"\\textbf\{([^{}]*)\}"), r"**\1**"),
+          (re.compile(r"\\(?:textit|emph)\{([^{}]*)\}"), r"*\1*"),
+          (re.compile(r"\\nivel\{(\w+)\}"), r"\1"),
+          (re.compile(r"\$?\\geq?\$?"), "≥"),
+          (re.compile(r"\$?\\leq?\$?"), "≤"),
+          (re.compile(r"\\([%&$#_])"), r"\1")]
+
+
+def _sin_latex(texto: str) -> str:
+    for patron, reemplazo in _LATEX:
+        texto = patron.sub(reemplazo, texto)
+    return texto
+
+
 def _con_emojis(texto: str) -> str:
     """Respuesta final con un emoji por nivel y por amenaza, y las citas en azul y en cursiva.
 
@@ -411,7 +427,7 @@ def _con_emojis(texto: str) -> str:
         emoji = next(e for clave, e in EMOJI_AMENAZA if m.group(2).lower().startswith(clave.lower()))
         return f"{m.group(1)}{emoji} {m.group(2)}"
 
-    partes = re.split(r"(\[[^\]]*\])", texto)   # las posiciones impares son lo que va entre corchetes
+    partes = re.split(r"(\[[^\]]*\])", _sin_latex(texto))   # las posiciones impares son lo que va entre corchetes
     for i, parte in enumerate(partes):
         if i % 2:
             if " — " in parte:   # cita del RAG: en azul y en cursiva, con sus corchetes
