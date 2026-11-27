@@ -38,6 +38,10 @@ Necesitás localidad (del catálogo de Mendoza), perfil (vid, frutal, hortaliza 
 superficie si es una finca, y cantidad de días (7 si no la dicen). Si falta la localidad o el \
 perfil, preguntá una sola vez, todo junto. Fuera de alcance: coordenadas libres, Zonda, heladas \
 y nieve; si lo piden, decilo y seguí con lo que sí cubrís.
+Los días cuentan desde hoy: «mañana» son 2 y «esta semana», 7. El pronóstico llega hasta 16 \
+días: si piden más (un mes, una temporada), avisá que el plan cubre los próximos 16, armalo con \
+16 y presentá el ENSO como perspectiva de la temporada, no como pronóstico. Pasá el mismo \
+número de días a get_weather_forecast y a get_river_discharge.
 
 # Flujo (5 pasos)
 Antes de cada grupo de tools, explicá en 1-2 líneas qué vas a consultar y por qué. Pedí en \

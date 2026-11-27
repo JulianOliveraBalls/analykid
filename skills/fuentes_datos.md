@@ -19,6 +19,7 @@ Copiá los valores tal como los devuelven las tools: ya vienen calculados y redo
 - Días favorables a hongos: días con ≥ 10 mm y mínima ≥ 10 °C (regla 10:10:24 de la peronóspora).
 - La cabecera trae oasis, piedemonte, río y contactos de emergencia.
 - La confianza baja con el plazo: a partir del día 4 o 5, tratá los valores como tendencia.
+- Horizonte máximo: 16 días desde hoy. Si el usuario pidió un plazo mayor, declaralo en las limitaciones: más allá del día 16 no hay pronóstico, solo la perspectiva de temporada del ENSO.
 
 ## get_river_discharge (Open-Meteo Flood API, GloFAS)
 - Recibe la misma localidad que el pronóstico; el río sale del catálogo y aparece en el texto como `rio=...`.

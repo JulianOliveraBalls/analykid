@@ -154,7 +154,8 @@ def get_weather_forecast(
     calculados (lluvia máxima y acumulada, probabilidad, CAPE, ráfagas, mínima, días
     ≥ 10 mm y días favorables a hongos), más departamento, oasis, piedemonte, río y
     contactos de emergencia. `localidad` es la clave o el nombre del catálogo (por
-    ejemplo «tupungato» o «San Rafael»); nunca coordenadas. `dias` va de 1 a 16.
+    ejemplo «tupungato» o «San Rafael»); nunca coordenadas. `dias` va de 1 a 16
+    y cuenta desde hoy: `dias=1` es solo hoy; para incluir mañana hacen falta 2.
     """
     clave, parecidas = resolver_localidad(localidad)
     if clave is None:
