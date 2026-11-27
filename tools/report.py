@@ -17,6 +17,7 @@ from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 
 from tools.common import BASE_DIR, Context, error, respond, resultados_del_turno
+from tools.panel import panel_latex
 
 OUTPUT_DIR = BASE_DIR / "output"
 TIMEOUT_S = 180   # la primera compilación descarga paquetes y puede tardar
@@ -34,12 +35,33 @@ PLANTILLA = r"""\documentclass[11pt]{article}
 \usepackage[a4paper,margin=2.2cm,bottom=2.8cm]{geometry}
 \usepackage[table]{xcolor}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{longtable}
 \usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
 \usepackage{newunicodechar}
+\usepackage{tikz}
+\usepackage{titlesec}
 \newunicodechar{≥}{\ensuremath{\geq}}
 \newunicodechar{≤}{\ensuremath{\leq}}
+\renewcommand{\familydefault}{\sfdefault}
+\definecolor{navy}{HTML}{0B1F5C}
+\definecolor{azul}{HTML}{1226B4}
+\definecolor{cielo}{HTML}{AEBBF5}
+\definecolor{tinta}{HTML}{1A1D26}
+\definecolor{gris}{HTML}{6B7280}
+\definecolor{hilo}{HTML}{D9DEEA}
+\definecolor{fondo}{HTML}{F3F5FB}
+\definecolor{tverde}{HTML}{2E7D32}
+\definecolor{tamarillo}{HTML}{9A6B00}
+\definecolor{tnaranja}{HTML}{D84315}
+\definecolor{trojo}{HTML}{C62828}
+\definecolor{tsindatos}{HTML}{616161}
+\titleformat{\section}{\Large\bfseries\color{navy}}{}{0pt}{}[{\color{hilo}\titlerule[0.8pt]}]
+\titleformat{\subsection}{\large\bfseries\color{azul}}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{8pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
 \definecolor{nverde}{HTML}{2E7D32}
 \definecolor{namarillo}{HTML}{F9A825}
 \definecolor{nnaranja}{HTML}{EF6C00}
@@ -58,12 +80,17 @@ PLANTILLA = r"""\documentclass[11pt]{article}
 \renewcommand{\headrulewidth}{0pt}
 \fancyfoot[C]{\footnotesize Este informe no reemplaza las alertas oficiales del SMN ni las indicaciones de Defensa Civil.}
 \fancyfoot[R]{\footnotesize\thepage}
-\title{<<TITULO>>}
-\author{AnalyKid}
-\date{\today}
 \begin{document}
-\maketitle
 \thispagestyle{fancy}
+\noindent\begin{tikzpicture}
+\node[fill=navy, rounded corners=6pt, inner sep=14pt, anchor=north west,
+  text width=\dimexpr\textwidth-28pt\relax, align=left] at (0,0) {%
+  {\color{cielo}\footnotesize\bfseries ANALYKID \textperiodcentered\ PLAN DE CONTINGENCIA}\\[5pt]
+  {\color{white}\LARGE\bfseries <<TITULO>>}\\[5pt]
+  {\color{cielo}\small Generado el \today}};
+\end{tikzpicture}
+\par\medskip
+<<PANEL>>
 <<CUERPO>>
 \end{document}
 """
@@ -256,8 +283,10 @@ def escapar_ampersands(cuerpo: str) -> str:
     return "".join(partes)
 
 
-def armar_tex(titulo: str, cuerpo: str) -> str:
-    return PLANTILLA.replace("<<TITULO>>", _escapar(titulo)).replace("<<CUERPO>>", cuerpo)
+def armar_tex(titulo: str, cuerpo: str, panel: str = "") -> str:
+    """Documento completo: plantilla fija, el panel de datos (armado en código) y el cuerpo del modelo."""
+    return (PLANTILLA.replace("<<TITULO>>", _escapar(titulo)).replace("<<PANEL>>", panel)
+            .replace("<<CUERPO>>", cuerpo))
 
 
 def compilar(tectonic: str, tex: Path) -> subprocess.CompletedProcess:
@@ -298,7 +327,8 @@ def create_pdf(titulo: str, cuerpo: str, runtime: ToolRuntime[Context]) -> Comma
             "create_pdf", f"el cuerpo no puede contener «{prohibido}»",
             "Enviá solo contenido (secciones, listas, tablas)."))
 
-    riesgo = resultados_del_turno(runtime.state.get("messages", [])).get("evaluate_risk")
+    resultados = resultados_del_turno(runtime.state.get("messages", []))
+    riesgo = resultados.get("evaluate_risk")
     if riesgo is None:
         return respond(runtime, error(
             "create_pdf", "no hay evaluación de riesgo en este turno",
@@ -321,7 +351,11 @@ def create_pdf(titulo: str, cuerpo: str, runtime: ToolRuntime[Context]) -> Comma
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_titulo.lower()).strip("-")[:40] or "informe"
     OUTPUT_DIR.mkdir(exist_ok=True)
     tex = OUTPUT_DIR / f"{slug}-{uuid4().hex[:6]}.tex"
-    tex.write_text(armar_tex(titulo, cuerpo), encoding="utf-8")
+    try:   # el panel es un agregado: si algo de los datos no cierra, el informe sale igual
+        panel = panel_latex(resultados)
+    except Exception:
+        panel = ""
+    tex.write_text(armar_tex(titulo, cuerpo, panel), encoding="utf-8")
 
     try:
         proc = compilar(tectonic, tex)
