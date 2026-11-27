@@ -155,6 +155,11 @@ st.markdown("""
 .ak-estado.ak-ok {color: var(--ak-verde); border: 1px solid var(--ak-verde);}
 .ak-estado.ak-error {color: var(--ak-rojo); border: 1px solid var(--ak-rojo);}
 .ak-estado.ak-espera {color: var(--ak-gris); border: 1px solid var(--ak-hilo);}
+/* Streamlit anima el plegado fijando la altura de la caja en línea. Con cajas anidadas que se
+   actualizan mientras llegan eventos, la animación se cortaba y la caja quedaba con una altura
+   vieja: el rótulo salía recortado y el contenido se encimaba con lo de abajo. Un !important de
+   la hoja le gana a la animación y al estilo en línea: plegar y desplegar es instantáneo. */
+[data-testid="stExpander"] details {height: auto !important;}
 /* Mientras un paso del recorrido corre, su título brilla de izquierda a derecha. */
 @keyframes ak-brillo {from {background-position: 200% 0;} to {background-position: -200% 0;}}
 [class*="st-key-ak-recorrido"] summary:has([data-testid="stExpanderIconSpinner"]) p {
@@ -279,10 +284,10 @@ class Paso:
         self.nombres: list[str] = []
         self.errores = 0
         self.con_pensamiento = False
-        # Abierto mientras el agente trabaja (la consigna pide ver cada tool en vivo); en el
-        # historial queda plegado y se abre a demanda, como el razonamiento de un chat.
+        # Siempre plegado, también en vivo: abiertos, cada tool que llegaba estiraba la página y
+        # la hacía saltar. El rótulo y el ícono muestran el avance; el detalle se abre a demanda.
         etiqueta, estado = rotulo or (f"Paso {n}", "running")
-        self.caja = st.status(etiqueta, expanded=self.vivo, state=estado)
+        self.caja = st.status(etiqueta, expanded=False, state=estado)
 
     def pensamiento(self) -> None:
         """Encabezado de la cadena de pensamiento, una sola vez por paso."""
@@ -291,8 +296,8 @@ class Paso:
             self.con_pensamiento = True
 
     def cerrar(self) -> None:
-        # Se pliega al terminar: queda a la vista el paso que corre y los anteriores se abren
-        # a demanda. Un paso que la persona abre después ya no recibe cambios y queda abierto.
+        # `expanded=False` es el mismo valor con que se creó: Streamlit no lo toma como cambio
+        # y un paso que la persona abrió mientras corría sigue abierto.
         if self.vivo:
             etiqueta, estado = _rotulo_paso(self.n, self.nombres, self.errores)
             self.caja.update(label=etiqueta, state=estado, expanded=False)
@@ -420,11 +425,12 @@ def _con_emojis(texto: str) -> str:
 def render_turno(eventos, clave: str, vivo: bool) -> list[dict]:
     """Recorrido arriba y, debajo, la respuesta final con el PDF. Sirve en vivo y para el historial.
 
-    Mientras el agente trabaja, «Armando plan de contingencia…» queda abierto y cada paso se ve
-    en vivo con sus tools, parámetros y resultados. Al terminar, el recorrido se pliega con su
-    resumen y debajo quedan la respuesta y el botón del PDF: exactamente lo mismo que dibuja el
-    historial, para que la próxima re-ejecución no cambie nada en pantalla. Los datos (semáforo,
-    pronóstico, caudal, contactos) van en el propio PDF.
+    Mientras el agente trabaja, «Armando plan de contingencia…» queda abierto con un renglón por
+    paso, plegado: se ve el avance y el detalle (tools, parámetros, resultados) se abre a
+    demanda. Al terminar, el recorrido se pliega con su resumen y debajo quedan la respuesta y el
+    botón del PDF: exactamente lo mismo que dibuja el historial, para que la próxima re-ejecución
+    no cambie nada en pantalla. Los datos (semáforo, pronóstico, caudal, contactos) van en el
+    propio PDF.
     """
     turno = Turno()
     rotulos, resumen = (None, "Armando plan de contingencia…") if vivo else _rotulos(eventos)
