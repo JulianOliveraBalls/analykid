@@ -344,6 +344,28 @@ def render_recorrido(eventos, turno: Turno, vivo: bool) -> list[dict]:
 
 # --- Un turno completo ---------------------------------------------------------------
 
+EMOJI_NIVEL = {"verde": "🟢", "amarillo": "🟡", "naranja": "🟠", "rojo": "🔴"}
+EMOJI_AMENAZA = [("Sanitari", "🍇"), ("Pluvial", "🌧️"), ("Granizo", "⛈️"), ("Tormenta", "⛈️"),
+                 ("Aluvional", "⛰️"), ("Crecida", "🌊")]
+_NIVEL = re.compile(r"(?<![\w🟢🟡🟠🔴] )(?<!\w)(verde|amarillo|naranja|rojo)\b", re.IGNORECASE)
+# Amenaza al empezar un renglón o una viñeta, seguida de «:» o «(» («Sanitaria: …», «**Pluvial** (…)»).
+_AMENAZA = re.compile(r"^(\s*(?:[-*]|\d+\.)?\s*(?:\*\*)?)((?:Sanitari|Pluvial|Granizo|Tormenta|Aluvional|Crecida)[^:(\n]{0,40}?"
+                      r"(?:\*\*)?\s*[:(])", re.IGNORECASE | re.MULTILINE)
+
+
+def _con_emojis(texto: str) -> str:
+    """Respuesta final con un emoji por nivel y por amenaza. Las citas [Documento — Sección] no se tocan."""
+    def amenaza(m: re.Match) -> str:
+        emoji = next(e for clave, e in EMOJI_AMENAZA if m.group(2).lower().startswith(clave.lower()))
+        return f"{m.group(1)}{emoji} {m.group(2)}"
+
+    partes = re.split(r"(\[[^\]]*\])", texto)   # las posiciones impares son citas
+    for i in range(0, len(partes), 2):
+        partes[i] = _NIVEL.sub(lambda m: f"{EMOJI_NIVEL[m.group(1).lower()]} {m.group(1)}", partes[i])
+        partes[i] = _AMENAZA.sub(amenaza, partes[i])
+    return "".join(partes)
+
+
 def render_turno(eventos, clave: str, vivo: bool) -> list[dict]:
     """Recorrido arriba y, debajo, la respuesta final con el PDF. Sirve en vivo y para el historial.
 
@@ -366,7 +388,7 @@ def render_turno(eventos, clave: str, vivo: bool) -> list[dict]:
     if finales := [texto for pos, texto in turno.textos if pos > turno.ultima_llamada]:
         _seccion("Respuesta final")
         for texto in finales:
-            st.markdown(texto)
+            st.markdown(_con_emojis(texto))
     pdf = turno.datos.get("create_pdf")
     if pdf and Path(pdf["pdf"]).exists():
         st.download_button("Descargar plan (PDF)", Path(pdf["pdf"]).read_bytes(), file_name=Path(pdf["pdf"]).name,
