@@ -177,6 +177,9 @@ st.markdown("""
   color: var(--ak-navy); opacity: 1; cursor: default;}
 .st-key-ak-lista-conversaciones button:disabled p {font-weight: 600;}
 .st-key-ak-lista-nueva button p {font-weight: 600;}
+/* La lista se redibuja al final de la página: mientras el agente trabaja, Streamlit la marca
+   como vieja y la atenúa. Se ve igual que siempre. */
+[class*="st-key-ak-lista"] [data-stale="true"] {opacity: 1 !important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -220,21 +223,66 @@ class Turno:
         self.pasos = 0
 
 
+def _rotulo_paso(n: int, nombres: list[str], errores: int) -> tuple[str, str]:
+    """Rótulo y estado de un paso terminado."""
+    if nombres:
+        detalle = ", ".join(dict.fromkeys(nombres))
+        if len(nombres) > 1:
+            detalle += f" ({len(nombres)} llamadas en paralelo)"
+    else:
+        detalle = "respuesta del modelo, sin tools"
+    if errores:
+        detalle += f" · {errores} con error"
+    return f"Paso {n} · {detalle}", "error" if errores else "complete"
+
+
+def _rotulo_recorrido(pasos: int, llamadas: int, errores: int) -> str:
+    return (f"Recorrido del agente · {pasos} paso(s) · {llamadas} llamada(s) a tools"
+            + (f" · {errores} con error" if errores else ""))
+
+
+def _rotulos(eventos: list[dict]) -> tuple[list[tuple[str, str]], str]:
+    """Rótulos finales de cada paso y del recorrido de un turno ya guardado.
+
+    En el historial cada caja se crea con su rótulo final. Si se creara con uno provisional y se
+    actualizara al final, como en vivo, cada re-ejecución de la página la haría parpadear.
+    """
+    pasos: list[dict] = []
+    de_llamada: dict[str, dict] = {}   # id de la llamada -> paso que la pidió
+    anterior = "resultado"
+    for e in eventos:
+        if e["tipo"] == "fuentes":
+            continue
+        if e["tipo"] != "resultado" and anterior == "resultado":   # mismo corte que el recorrido
+            pasos.append({"nombres": [], "errores": 0})
+        anterior = e["tipo"]
+        if e["tipo"] == "llamada":
+            pasos[-1]["nombres"].append(e["nombre"])
+            de_llamada[e["id"]] = pasos[-1]
+        elif e["tipo"] == "resultado" and e["texto"].startswith("ERROR"):
+            de_llamada[e["id"]]["errores"] += 1
+    rotulos = [_rotulo_paso(n, p["nombres"], p["errores"]) for n, p in enumerate(pasos, 1)]
+    llamadas = sum(len(p["nombres"]) for p in pasos)
+    return rotulos, _rotulo_recorrido(len(pasos), llamadas, sum(p["errores"] for p in pasos))
+
+
 class Paso:
     """Un paso del ciclo del agente: lo que el modelo pensó y las tools que pidió en esa respuesta.
 
     Las tools de un mismo paso se piden juntas (en paralelo); el paso se cierra cuando el
-    modelo vuelve a responder.
+    modelo vuelve a responder. Sin `rotulo` es un paso en vivo; con él, uno del historial.
     """
 
-    def __init__(self, n: int, vivo: bool):
+    def __init__(self, n: int, rotulo: tuple[str, str] | None = None):
         self.n = n
+        self.vivo = rotulo is None
         self.nombres: list[str] = []
         self.errores = 0
         self.con_pensamiento = False
         # Abierto mientras el agente trabaja (la consigna pide ver cada tool en vivo); en el
         # historial queda plegado y se abre a demanda, como el razonamiento de un chat.
-        self.caja = st.status(f"Paso {n}", expanded=vivo, state="running" if vivo else "complete")
+        etiqueta, estado = rotulo or (f"Paso {n}", "running")
+        self.caja = st.status(etiqueta, expanded=self.vivo, state=estado)
 
     def pensamiento(self) -> None:
         """Encabezado de la cadena de pensamiento, una sola vez por paso."""
@@ -243,16 +291,11 @@ class Paso:
             self.con_pensamiento = True
 
     def cerrar(self) -> None:
-        if self.nombres:
-            detalle = ", ".join(dict.fromkeys(self.nombres))
-            if len(self.nombres) > 1:
-                detalle += f" ({len(self.nombres)} llamadas en paralelo)"
-        else:
-            detalle = "respuesta del modelo, sin tools"
-        if self.errores:
-            detalle += f" · {self.errores} con error"
-        self.caja.update(label=f"Paso {self.n} · {detalle}",
-                         state="error" if self.errores else "complete")
+        # Se pliega al terminar: queda a la vista el paso que corre y los anteriores se abren
+        # a demanda. Un paso que la persona abre después ya no recibe cambios y queda abierto.
+        if self.vivo:
+            etiqueta, estado = _rotulo_paso(self.n, self.nombres, self.errores)
+            self.caja.update(label=etiqueta, state=estado, expanded=False)
 
 
 def _invocacion(paso: Paso, e: dict) -> dict:
@@ -278,7 +321,7 @@ def _invocacion(paso: Paso, e: dict) -> dict:
     return {"llamada": e, "paso": paso, "titulo": titulo, "cuerpo": cuerpo}
 
 
-def render_recorrido(eventos, turno: Turno, vivo: bool) -> list[dict]:
+def render_recorrido(eventos, turno: Turno, rotulos: list[tuple[str, str]] | None) -> list[dict]:
     """Dibuja el recorrido a medida que llegan los eventos. Devuelve los eventos dibujados.
 
     Cada respuesta del modelo abre un paso: primero su cadena de pensamiento (el
@@ -297,7 +340,7 @@ def render_recorrido(eventos, turno: Turno, vivo: bool) -> list[dict]:
             if paso:
                 paso.cerrar()
             turno.pasos += 1
-            paso = Paso(turno.pasos, vivo)
+            paso = Paso(turno.pasos, rotulos[turno.pasos - 1] if rotulos else None)
         anterior = tipo
         if tipo == "resultado":
             hueco = pendientes.pop(e["id"])
@@ -378,21 +421,23 @@ def render_turno(eventos, clave: str, vivo: bool) -> list[dict]:
     """Recorrido arriba y, debajo, la respuesta final con el PDF. Sirve en vivo y para el historial.
 
     Mientras el agente trabaja, «Armando plan de contingencia…» queda abierto y cada paso se ve
-    en vivo con sus tools, parámetros y resultados. Al terminar, la página se redibuja desde el
-    historial: el recorrido queda plegado arriba, con su resumen, y debajo la respuesta y el
-    botón del PDF. Los datos (semáforo, pronóstico, caudal, contactos) van en el propio PDF.
+    en vivo con sus tools, parámetros y resultados. Al terminar, el recorrido se pliega con su
+    resumen y debajo quedan la respuesta y el botón del PDF: exactamente lo mismo que dibuja el
+    historial, para que la próxima re-ejecución no cambie nada en pantalla. Los datos (semáforo,
+    pronóstico, caudal, contactos) van en el propio PDF.
     """
     turno = Turno()
+    rotulos, resumen = (None, "Armando plan de contingencia…") if vivo else _rotulos(eventos)
     with st.container(key=f"ak-recorrido-{clave}"):
-        caja = st.status("Armando plan de contingencia…", expanded=vivo,
-                         state="running" if vivo else "complete")
+        caja = st.status(resumen, expanded=vivo, state="running" if vivo else "complete")
         with caja:
             st.caption("Cada paso es una respuesta del modelo: su cadena de pensamiento y, por cada "
                        "tool, la invocación, los parámetros y el resultado.")
-            emitidos = render_recorrido(eventos, turno, vivo)
-        n = sum(e["tipo"] == "llamada" for e in emitidos)
-        caja.update(label=f"Recorrido del agente · {turno.pasos} paso(s) · {n} llamada(s) a tools"
-                    + (f" · {turno.errores} con error" if turno.errores else ""), state="complete")
+            emitidos = render_recorrido(eventos, turno, rotulos)
+        if vivo:
+            n = sum(e["tipo"] == "llamada" for e in emitidos)
+            caja.update(label=_rotulo_recorrido(turno.pasos, n, turno.errores), state="complete",
+                        expanded=False)
     if finales := [texto for pos, texto in turno.textos if pos > turno.ultima_llamada]:
         _seccion("Respuesta final")
         for texto in finales:
@@ -408,8 +453,12 @@ def render_turno(eventos, clave: str, vivo: bool) -> list[dict]:
 
 # --- Barra lateral --------------------------------------------------------------------
 
-def render_sidebar() -> None:
-    actual = st.session_state.config["configurable"]["thread_id"]
+def render_sidebar() -> tuple:
+    """Barra lateral. Devuelve los contenedores de la lista de conversaciones, vacíos.
+
+    La lista se llena al final de la página (`render_conversaciones`), así refleja el turno que
+    acaba de terminar sin volver a ejecutar la página entera.
+    """
     with st.sidebar:
         st.markdown('<div class="ak-marca">AnalyKid</div>', unsafe_allow_html=True)
         with st.form("finca"):
@@ -429,21 +478,29 @@ def render_sidebar() -> None:
                     f"para los próximos {dias} días")
 
         # Lista de texto plano sobre el fondo de la barra, como en los chats de IA (ver CSS ak-lista).
-        with st.container(key="ak-lista-nueva"):
-            if st.button("Nueva conversación", icon=":material/edit_square:", type="tertiary",
-                         disabled=not st.session_state.historial, width="stretch"):
-                init_session(new_thread())
-                st.rerun()
+        nueva = st.container(key="ak-lista-nueva")
         st.markdown('<div class="ak-etiqueta">Conversaciones</div>', unsafe_allow_html=True)
-        with st.container(key="ak-lista-conversaciones", gap=None):
-            for thread_id, titulo in list_threads():
-                if st.button(titulo, key=thread_id, type="tertiary", disabled=thread_id == actual,
-                             width="stretch"):
-                    init_session(select_thread(thread_id))
-                    st.rerun()
+        lista = st.container(key="ak-lista-conversaciones", gap=None)
         st.divider()
         st.caption(f"Modelo: {MODELO}")
         st.caption("Este informe no reemplaza las alertas oficiales del SMN ni las indicaciones de Defensa Civil.")
+    return nueva, lista
+
+
+def render_conversaciones(nueva, lista) -> None:
+    """Llena la lista de conversaciones de la barra lateral; va al final de la página."""
+    with nueva:
+        if st.button("Nueva conversación", icon=":material/edit_square:", type="tertiary",
+                     disabled=not st.session_state.historial, width="stretch"):
+            init_session(new_thread())
+            st.rerun()
+    actual = st.session_state.config["configurable"]["thread_id"]
+    with lista:
+        for thread_id, titulo in list_threads():
+            if st.button(titulo, key=thread_id, type="tertiary", disabled=thread_id == actual,
+                         width="stretch"):
+                init_session(select_thread(thread_id))
+                st.rerun()
 
 
 def render_bienvenida() -> None:
@@ -478,7 +535,7 @@ if "config" not in st.session_state:
 _logo = base64.b64encode(LOGO.read_bytes()).decode()
 st.markdown(f'<div class="ak-hero"><img src="data:image/svg+xml;base64,{_logo}" alt="AnalyKid">'
             "<div><p>Planes de contingencia ante el riesgo hídrico y climático en Mendoza · El Niño 2026-2027</p></div></div>", unsafe_allow_html=True)
-render_sidebar()
+conversaciones = render_sidebar()
 
 historial = st.session_state.historial
 PLACEHOLDER = "Escribí tu consulta o un cambio («¿y si la finca estuviera en San Rafael?»)"
@@ -496,6 +553,7 @@ if not historial and "pendiente" not in st.session_state:
         if inicial := st.chat_input(PLACEHOLDER, key="ak-input-inicio"):
             st.session_state.pendiente = inicial
             st.rerun()
+    render_conversaciones(*conversaciones)
     st.stop()
 
 # Streamlit re-ejecuta todo el script en cada interacción: se redibuja el historial guardado.
@@ -515,6 +573,10 @@ if prompt:
             eventos = render_turno(stream_turn(prompt, st.session_state.config, turno), f"t{turno}", vivo=True)
         except Exception as e:
             st.error(mensaje_de_error(e))
-            st.stop()
-    st.session_state.historial.append((prompt, eventos))
-    st.rerun()   # redibuja todo desde session_state
+        else:
+            # Sin st.rerun(): el turno en vivo ya quedó dibujado igual que el historial. Re-ejecutar
+            # acá redibujaba todo de golpe y, mientras tanto, la página mostraba huecos en blanco
+            # y el recorrido plegándose a medias.
+            st.session_state.historial.append((prompt, eventos))
+
+render_conversaciones(*conversaciones)
