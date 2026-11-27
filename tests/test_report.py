@@ -72,6 +72,15 @@ def test_escapar_ampersands_fuera_de_tablas():
     assert "a=1&b=2" in salida
 
 
+def test_escapar_porcentajes_sueltos_y_no_en_urls():
+    cuerpo = (r"Probabilidad del 35 % y del 73\%. \url{https://x.org/a%20b}" "\n"
+              r"Prob. (\%) & 35 % \\")
+    salida = report.escapar_porcentajes(cuerpo)
+    assert r"del 35 \% y del 73\%." in salida
+    assert r"\url{https://x.org/a%20b}" in salida
+    assert r"Prob. (\%) & 35 \% \\" in salida
+
+
 def test_escapar_ampersands_despues_de_longtable():
     cuerpo = r"\begin{longtable}{ll} x & y \\ \end{longtable} P&G"
     assert report.escapar_ampersands(cuerpo) == r"\begin{longtable}{ll} x & y \\ \end{longtable} P\&G"

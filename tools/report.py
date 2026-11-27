@@ -283,6 +283,17 @@ def escapar_ampersands(cuerpo: str) -> str:
     return "".join(partes)
 
 
+def escapar_porcentajes(cuerpo: str) -> str:
+    r"""Escapa los `%` sueltos, salvo dentro de \url{}.
+
+    En LaTeX un `%` sin escapar empieza un comentario y se come el resto de la línea sin dar error:
+    «probabilidad del 35 %» salía cortado en el PDF y el control no lo veía. El informe nunca
+    necesita comentarios, así que todo `%` es texto.
+    """
+    partes = re.split(r"(\\url\{[^}]*\})", cuerpo)   # las posiciones impares son URLs: van literales
+    return "".join(p if i % 2 else re.sub(r"(?<!\\)%", r"\\%", p) for i, p in enumerate(partes))
+
+
 def armar_tex(titulo: str, cuerpo: str, panel: str = "") -> str:
     """Documento completo: plantilla fija, el panel de datos (armado en código) y el cuerpo del modelo."""
     return (PLANTILLA.replace("<<TITULO>>", _escapar(titulo)).replace("<<PANEL>>", panel)
@@ -345,7 +356,8 @@ def create_pdf(titulo: str, cuerpo: str, runtime: ToolRuntime[Context]) -> Comma
             "create_pdf", "no se encontró Tectonic",
             "No reintentes: entregá el informe en markdown y avisá que falta TECTONIC_PATH."))
 
-    cuerpo = escapar_ampersands(cuerpo)   # después de validar: el semáforo se busca con su `&`
+    # Después de validar: el semáforo se busca con su `&`.
+    cuerpo = escapar_porcentajes(escapar_ampersands(cuerpo))
     titulo = " ".join(titulo.split())
     ascii_titulo = unicodedata.normalize("NFKD", titulo).encode("ascii", "ignore").decode()
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_titulo.lower()).strip("-")[:40] or "informe"
